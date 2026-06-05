@@ -2064,6 +2064,9 @@ function isAdminRole() {
   const role = currentUserRole();
   return role === 'admin' || role === 'supra_admin';
 }
+function isAdminUser() {
+  return isAdminRole();
+}
 function isSupraAdmin() {
   return currentUserRole() === 'supra_admin';
 }
