@@ -102,7 +102,7 @@ html,body{height:100%;overflow:hidden;font-family:'Barlow',sans-serif;background
 .price-mode-single.net .price-mode-single-value{color:#374151;}
 .price-mode-duo-net{font-size:9px;font-weight:800;color:#374151;text-transform:none;letter-spacing:.35px;}
 .price-mode-duo-gross{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;color:var(--green);letter-spacing:0;text-transform:none;}
-.pane-meta{font-size:11px;color:var(--text3);font-weight:700;letter-spacing:.2px;margin:0 2px 8px;text-align:right;}
+.pane-meta{font-size:9px;color:var(--text3);font-weight:700;letter-spacing:.2px;margin:0 2px 3px;text-align:right;line-height:1;min-height:18px;display:flex;flex-direction:column;justify-content:center;gap:1px;}
 .cat-pane-top{display:flex;align-items:center;gap:8px;padding:10px 14px 0;flex-shrink:0;}
 .cat-pane-meta{margin:0;text-align:right;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .catalog-selector{display:flex;gap:4px;flex:0 0 auto;}
@@ -501,7 +501,7 @@ html,body{height:100%;overflow:hidden;font-family:'Barlow',sans-serif;background
 
     <!-- BUSCAR -->
     <div class="pane act" id="pane-buscar" style="padding:12px;">
-      <div class="pane-meta" id="search-prod-updated">Ultima actualizacion catalogo: -</div>
+      <div class="pane-meta" id="search-prod-updated"><span>Última actualización: —</span><span>Última reagrupación: —</span></div>
       <div class="search-wrap">
         <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
         <input class="inp-search" id="inp-buscar" type="text" placeholder="Nombre o código…" oninput="onSearch(this.value)" autocomplete="off" autocorrect="off" spellcheck="false">
@@ -519,7 +519,7 @@ html,body{height:100%;overflow:hidden;font-family:'Barlow',sans-serif;background
     <div class="pane" id="pane-cats">
       <div class="cat-pane-top">
         <div class="catalog-selector" id="catalog-selector"></div>
-        <div class="pane-meta cat-pane-meta" id="cat-prod-updated">Ultima actualizacion catalogo: -</div>
+        <div class="pane-meta cat-pane-meta" id="cat-prod-updated"><span>Última actualización: —</span><span>Última reagrupación: —</span></div>
       </div>
       <div class="cat-header" id="cat-header">
         <div class="cat-back hidden" id="cat-back" onclick="catBack()">
@@ -655,7 +655,7 @@ html,body{height:100%;overflow:hidden;font-family:'Barlow',sans-serif;background
           <h3>Carga de maestros</h3>
           <div class="admin-item" onclick="document.getElementById('prod-upload').click()">
             <div class="admin-item-icon" style="background:#e8f5e9"><svg viewBox="0 0 24 24" fill="none" stroke="#2e7d32" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg></div>
-            <div><div class="admin-item-label">Actualizar catálogo</div><div class="admin-item-sub" id="adm-prod-count">—</div><div class="admin-item-sub" id="adm-prod-updated">Última actualización: —</div></div>
+            <div><div class="admin-item-label">Actualizar catálogo</div><div class="admin-item-sub" id="adm-prod-count">—</div><div class="admin-item-sub" id="adm-prod-updated"><span>Última actualización: —</span><br><span>Última reagrupación: —</span></div></div>
           </div>
           <input type="file" id="prod-upload" class="upload-hidden" accept=".xlsx,.csv" onchange="uploadProds(this)">
           <div class="admin-item" onclick="openRegroupCatalogModal()">
@@ -813,7 +813,8 @@ const FITFLOW_ACTIVE_CATALOG_KEY = 'active_catalog_view';
 const FITFLOW_MASTER_CATALOG_CACHE_KEY = 'catalog_master_products';
 const FITFLOW_CATALOG_VIEW_IDS = ['old','new'];
 const FITFLOW_CATALOG_CACHE_SCHEMA_KEY = 'catalog_cache_schema';
-const FITFLOW_CATALOG_CACHE_SCHEMA_VERSION = '2026-06-05-catalog-views-v1';
+const FITFLOW_CATALOG_CACHE_SCHEMA_VERSION = '2026-06-09-product-source-v2';
+const FITFLOW_PRODUCT_SOURCE_CACHE_KEY = 'prods_full';
 const FITFLOW_AUTH_RECHECK_MS = 15 * 60 * 1000;
 const FITFLOW_AUTH_OFFLINE_MAX_MS = 24 * 60 * 60 * 1000;
 let catalogMasterState = {available:false, byCode:new Map(), products:[], meta:null, error:''};
@@ -882,6 +883,7 @@ function invalidateCatalogCacheIfNeeded() {
   if (LS.get(FITFLOW_CATALOG_CACHE_SCHEMA_KEY) === FITFLOW_CATALOG_CACHE_SCHEMA_VERSION) return;
   [
     'prods',
+    FITFLOW_PRODUCT_SOURCE_CACHE_KEY,
     FITFLOW_MASTER_CATALOG_CACHE_KEY,
     ...FITFLOW_CATALOG_VIEW_IDS.map(catalogViewCacheKey)
   ].forEach(removeLocalCacheFamily);
@@ -906,6 +908,7 @@ function invalidateCatalogCacheIfNeeded() {
 function freeLocalStorageForCriticalData() {
   // Pedidos y borrados son críticos. Catálogo/clientes se pueden reconstruir desde IndexedDB o Firebase.
   removeLocalCacheFamily('prods');
+  removeLocalCacheFamily(FITFLOW_PRODUCT_SOURCE_CACHE_KEY);
   removeLocalCacheFamily('clients');
 }
 
@@ -1671,15 +1674,17 @@ async function loadFromFirebase(opts={}) {
     // Catálogo oficial cargado por Admin
     if (pMetaSnap.exists() && pMetaSnap.data()?.chunks) {
       const meta = pMetaSnap.data();
-      const localProdsInfo = await getListCacheInfo('prods');
-      const ready = cacheReadyReason('prods', meta, localProdsInfo);
+      const localProdsInfo = await getListCacheInfo(FITFLOW_PRODUCT_SOURCE_CACHE_KEY);
+      const ready = cacheReadyReason(FITFLOW_PRODUCT_SOURCE_CACHE_KEY, meta, localProdsInfo);
       const localProds = localProdsInfo.list;
       if (ready.ready) {
         LS._setLocal('prods_cache_reason', {reason:'cache local vigente', checkedAt:new Date().toISOString(), localMethod:localProdsInfo.method||'', localCount:localProdsInfo.count||0, remoteCount:meta.count||0, remoteVersion:meta.version||''});
-        prods = localProds;
+        prods = applyProductVisibilityRules(localProds, {rows:[]}).products;
+        LS_MEMORY.prods = cloneStorageValue(prods);
         LS._setLocal('prods_source', 'firebase');
         LS._setLocal('prods_version', meta.version||'firebase');
-        LS._setLocal('prods_updated_at', meta.updatedAt||null);
+        LS._setLocal('prods_updated_at', meta.sourceUpdatedAt||meta.updatedAt||null);
+        LS._setLocal('prods_regrouped_at', meta.regroupedAt||null);
         LS._setLocal('prods_updated_by', meta.updatedBy||'Administrador');
         if (meta.log) LS._setLocal('product_import_log', meta.log);
         const countEl = document.getElementById('adm-prod-count');
@@ -1701,7 +1706,8 @@ async function loadFromFirebase(opts={}) {
           if (countMismatch) {
             console.warn('Catálogo con resumen inconsistente: usando paquetes disponibles', `Firebase chunks ${remoteProds.length}`, `resumen ${meta.count}`);
           }
-          prods = remoteProds;
+          const sourceSaved = await setListCache(FITFLOW_PRODUCT_SOURCE_CACHE_KEY, remoteProds, meta.version||'firebase');
+          prods = applyProductVisibilityRules(remoteProds, {rows:[]}).products;
           LS_MEMORY.prods = cloneStorageValue(prods);
           LS_MEMORY.prods_version = meta.version||'firebase';
           LS_MEMORY.prods_cache_status = {version:meta.version||'firebase', count:prods.length, savedAt:new Date().toISOString(), method:'session_memory_pre_save', verified:false, reason:'Disponible en memoria durante esta sesión'};
@@ -1714,14 +1720,15 @@ async function loadFromFirebase(opts={}) {
           LS._setLocal('prods_cache_reason', {reason:saveReason, checkedAt:new Date().toISOString(), localMethod:savedInfo.method||'session_memory', localCount:savedInfo.count||prods.length, remoteCount:meta.count||0, remoteVersion:meta.version||'', mismatch:countMismatch});
           LS._setLocal('prods_source', 'firebase');
           LS._setLocal('prods_version', meta.version||'firebase');
-          LS._setLocal('prods_updated_at', meta.updatedAt||null);
+          LS._setLocal('prods_updated_at', meta.sourceUpdatedAt||meta.updatedAt||null);
+          LS._setLocal('prods_regrouped_at', meta.regroupedAt||null);
           LS._setLocal('prods_updated_by', meta.updatedBy||'Administrador');
           if (meta.log) LS._setLocal('product_import_log', meta.log);
           const countEl = document.getElementById('adm-prod-count');
           if (countEl) countEl.textContent = prods.length+' productos';
           updateProductMetaUI();
           updateProductLogUI();
-          if (!saved) toast('El navegador no pudo guardar el catálogo localmente','warn');
+          if (!saved || !sourceSaved) toast('El navegador no pudo guardar completamente el catálogo local','warn');
         }
       }
     }
@@ -1867,10 +1874,11 @@ function updateClientMetaUI() {
   if (modal) modal.textContent = text;
 }
 function updateProductMetaUI() {
-  const text = `Última actualización catálogo: ${formatProductUpdatedAt(LS.get('prods_updated_at'))}`;
+  const updated = `Última actualización: ${formatProductUpdatedAt(LS.get('prods_updated_at'))}`;
+  const regrouped = `Última reagrupación: ${LS.get('prods_regrouped_at') ? formatProductUpdatedAt(LS.get('prods_regrouped_at')) : '—'}`;
   ['adm-prod-updated','search-prod-updated','cat-prod-updated'].forEach(id=>{
     const el = document.getElementById(id);
-    if (el) el.textContent = text;
+    if (el) el.innerHTML = `<span>${updated}</span>${id === 'adm-prod-updated' ? '<br>' : ''}<span>${regrouped}</span>`;
   });
 }
 function updateProductLogUI() {
@@ -6209,15 +6217,15 @@ function confirmVisibilityEnabledToggle(el) {
   box.insertAdjacentHTML('beforeend', `<div class="vis-search-overlay" id="vis-toggle-confirm-overlay">
     <div class="modal-title">${turningOn ? 'Activar reglas al publicar' : 'Desactivar reglas al publicar'}</div>
     <div class="modal-sub">${turningOn
-      ? 'Activar estas reglas no cambia el catálogo actual. Será efectivo en la próxima Actualizar catálogo o Reagrupar catálogo.'
-      : 'Desactivar estas reglas no cambia el catálogo actual. En la próxima Actualizar catálogo o Reagrupar catálogo se publicará el catálogo sin aplicar estas reglas.'}</div>
+      ? 'Se aplicarán las reglas inmediatamente sobre el catálogo completo guardado. No se volverá a cargar el archivo.'
+      : 'Se volverá a mostrar inmediatamente el catálogo completo guardado, sin aplicar las reglas de visibilidad.'}</div>
     <div class="modal-btns">
       <button class="btn-confirm" onclick="applyVisibilityEnabledToggle()">${turningOn ? 'Activar' : 'Desactivar'}</button>
       <button class="btn-cancel" onclick="cancelVisibilityEnabledToggle()">Cancelar</button>
     </div>
   </div>`);
 }
-function applyVisibilityEnabledToggle() {
+async function applyVisibilityEnabledToggle() {
   const state = pendingVisibilityToggleState;
   const el = document.getElementById('vis-enabled');
   if (el && state) {
@@ -6227,9 +6235,7 @@ function applyVisibilityEnabledToggle() {
     const savedRules = normalizeProductVisibilityRules({...productVisibilityRules(), enabled:state.next});
     LS.set('product_visibility_rules', savedRules);
     updateProductVisibilityRulesUI();
-    toast(state.next
-      ? 'Evaluación activada. Será efectiva en la próxima carga o reagrupación.'
-      : 'Evaluación desactivada. Será efectiva en la próxima carga o reagrupación.', 'ok', 'long');
+    await refreshVisibleProductsFromSource();
   }
   document.getElementById('vis-toggle-confirm-overlay')?.remove();
   pendingVisibilityToggleState = null;
@@ -6260,7 +6266,7 @@ function updateProductVisibilityRulesUI() {
   if (!el) return;
   const r = productVisibilityRules();
   const parts = [];
-  parts.push(r.enabled ? 'Activas en cargas' : 'Sin aplicar');
+  parts.push(r.enabled ? 'Activas' : 'Sin aplicar');
   if (r.invalidPrice.enabled) parts.push(`precio min $${r.invalidPrice.minPrice.toLocaleString('es-CL')}`);
   if (r.stockDate.enabled) parts.push(`stock sin compra desde ${r.stockDate.cutoffDate}`);
   if (r.exceptions.alwaysShow || r.exceptions.alwaysHide) parts.push('con excepciones');
@@ -6276,11 +6282,11 @@ function adminProductVisibilityRules() {
   ].map(([v,l])=>`<option value="${v}" ${r.stockDate.invalidDateAction===v?'selected':''}>${l}</option>`).join('');
   const publishDisabled = r.enabled ? '' : 'disabled';
   openModal(`<div class="modal-title">Visibilidad de productos</div>
-  <div class="modal-sub">Estas reglas se aplican solo al Actualizar catálogo o Reagrupar catálogo. Los productos ocultos y enviados a revisión quedan registrados en el log.</div>
+  <div class="modal-sub">Estas reglas se aplican inmediatamente sobre el catálogo completo guardado. Los productos ocultos y enviados a revisión quedan registrados en el log de la última carga o reagrupación.</div>
   <label class="vis-switch-row">
     <input class="vis-switch-input" type="checkbox" id="vis-enabled" data-prev="${r.enabled?'1':'0'}" ${r.enabled?'checked':''} onchange="confirmVisibilityEnabledToggle(this)">
     <span class="vis-switch-track"></span>
-    <span class="vis-switch-text"><span class="vis-switch-title">Activar evaluación de reglas</span><span class="vis-switch-note">Calcula productos visibles, ocultos y en revisión en la próxima carga o reagrupación.</span></span>
+    <span class="vis-switch-text"><span class="vis-switch-title">Activar evaluación de reglas</span><span class="vis-switch-note">Aplica o retira inmediatamente las reglas sobre el catálogo completo guardado.</span></span>
   </label>
   <label class="modal-lbl" id="vis-publish-only-row" style="display:flex;align-items:flex-start;gap:8px;margin-top:10px;${r.enabled?'':'opacity:.45;'}"><input type="checkbox" id="vis-publish-only" ${r.publishOnlyVisible?'checked':''} ${publishDisabled}> <span>Publicar solo productos visibles para vendedores<br><span class="modal-sub" style="display:block;margin:2px 0 0;text-transform:none;letter-spacing:0;">Disponible solo si la evaluación está activa. Si está marcado, los vendedores ven solo productos aprobados por las reglas. Si está desmarcado, ven el catálogo completo y las reglas quedan solo como revisión interna de la carga.</span></span></label>
   <div style="height:1px;background:var(--border);margin:12px 0;"></div>
@@ -6311,7 +6317,7 @@ function adminProductVisibilityRules() {
   ['show','hide'].forEach(updateVisibilityExceptionSelection);
   updateVisibilityPublishOnlyState();
 }
-function saveProductVisibilityRules() {
+async function saveProductVisibilityRules() {
   if (!requireSupraAccess()) return;
   const currentRules = productVisibilityRules();
   const rules = normalizeProductVisibilityRules({
@@ -6337,7 +6343,7 @@ function saveProductVisibilityRules() {
   LS.set('product_visibility_rules', rules);
   updateProductVisibilityRulesUI();
   closeModal();
-  toast('Reglas de visibilidad guardadas','ok');
+  await refreshVisibleProductsFromSource();
 }
 
 function productVisibilityCodeSet(value='') {
@@ -6488,6 +6494,33 @@ function applyProductVisibilityRules(list=[], log={}, rawRules=null) {
   return {products:output, log:nextLog};
 }
 
+async function productSourceList() {
+  const sourceInfo = await getListCacheInfo(FITFLOW_PRODUCT_SOURCE_CACHE_KEY);
+  if (Array.isArray(sourceInfo.list) && sourceInfo.list.length) return sourceInfo.list;
+  return Array.isArray(prods) ? prods : [];
+}
+
+async function refreshVisibleProductsFromSource(opts={}) {
+  const source = await productSourceList();
+  if (!source.length) return {source:[], products:[], restored:false};
+  const filtered = applyProductVisibilityRules(source, {rows:[]});
+  prods = filtered.products;
+  LS_MEMORY.prods = cloneStorageValue(prods);
+  LS_MEMORY.prods_version = LS.get('prods_version') || '';
+  await setListCache('prods', prods, LS.get('prods_version') || `visibility-${Date.now()}`);
+  refreshAfterSync();
+  const previousInput = Number((LS.get('product_import_log') || {}).visibilityRules?.inputCount || 0);
+  const sourceIncomplete = !productVisibilityRules().enabled && previousInput > source.length;
+  if (opts.notify !== false) {
+    if (sourceIncomplete) {
+      toast('Reglas desactivadas. Para recuperar los productos ocultos anteriormente, actualiza una vez el catálogo desde el archivo original.','warn','long');
+    } else {
+      toast(`Catálogo visible actualizado: ${prods.length} productos`,'ok');
+    }
+  }
+  return {source, products:prods, restored:!sourceIncomplete};
+}
+
 function applyLogo(kind, data) {
   if (arguments.length === 1) { data = kind; kind = 'login'; }
   const lp=document.getElementById('login-logo-placeholder'), hw=document.getElementById('hdr-logo-wrap');
@@ -6594,11 +6627,13 @@ async function uploadProds(inp) {
     const updatedAt = new Date().toISOString();
     const version = 'catalogo-'+updatedAt;
     prods=news;
-    setLoadingText(`Guardando catálogo local (${news.length} productos)...`);
+    setLoadingText(`Guardando catálogo completo (${parsed.products.length} productos)...`);
+    const sourceSaved = await setListCache(FITFLOW_PRODUCT_SOURCE_CACHE_KEY, parsed.products, version);
     const saved = await setListCache('prods', prods, version);
     LS._setLocal('prods_source','admin_upload');
     LS._setLocal('prods_version',version);
     LS._setLocal('prods_updated_at',updatedAt);
+    LS._setLocal('prods_regrouped_at',null);
     LS._setLocal('prods_updated_by',currentUser?.name||'Administrador');
     log={...filtered.log, version, updatedAt, updatedBy:currentUser?.name||'Administrador', fileName:f.name};
     LS._setLocal('product_import_log',log);
@@ -6606,7 +6641,7 @@ async function uploadProds(inp) {
     let firebasePublished = false;
     try {
       setLoadingText('Publicando catálogo en Firebase...');
-      const firebaseSync = await syncProductsToFirebase(news, {version, updatedAt, updatedBy: currentUser?.name||'Administrador', fileName: f.name, log});
+      const firebaseSync = await syncProductsToFirebase(parsed.products, {version, updatedAt, sourceUpdatedAt:updatedAt, regroupedAt:null, visibleCount:news.length, updatedBy: currentUser?.name||'Administrador', fileName: f.name, log});
       log.firebaseSync = firebaseSync;
       LS._setLocal('product_import_log',log);
       firebasePublished = true;
@@ -6631,7 +6666,7 @@ async function uploadProds(inp) {
     }
     document.getElementById('adm-prod-count').textContent=prods.length+' productos';
     updateProductMetaUI();
-    if (!saved) toast('El navegador no pudo guardar el catálogo localmente','warn');
+    if (!saved || !sourceSaved) toast('El navegador no pudo guardar completamente el catálogo local','warn');
     const failMessage = log?.firebaseSync?.userMessage || 'Catálogo procesado, pero Firebase no confirmó. Revisa log y reintenta.';
     toast(firebasePublished ? `Catálogo publicado y verificado: ${news.length} productos ✓` : failMessage , firebasePublished ? 'ok' : 'err', firebasePublished ? 'medium' : 'long');
   } catch(e){console.log('Product upload error:', e?.message || e); toast('Error al leer el archivo','err');}
@@ -7048,8 +7083,8 @@ function openRegroupCatalogModal() {
   openModal(`<div class="modal-title">Reagrupar catálogo</div>
     <div class="modal-sub">Se conservarán nombres, precios, unidades y stock. Solo se recalcularán las agrupaciones usando la jerarquía maestro actual de Firebase.</div>
     <div style="font-size:12px;color:var(--text2);line-height:1.45;margin-top:8px;">
-      Productos actuales: <strong style="color:var(--text);">${prods.length}</strong><br>
-      Esta acción publicará una nueva versión del catálogo DEV.
+      Productos visibles actuales: <strong style="color:var(--text);">${prods.length}</strong><br>
+      Esta acción reorganiza la fuente completa y publica una nueva versión del catálogo.
     </div>
     <div class="modal-btns" style="margin-top:14px;">
       <button class="btn-confirm-green" onclick="confirmRegroupCatalog()">Reagrupar</button>
@@ -7063,14 +7098,15 @@ async function confirmRegroupCatalog() {
   if (!prods.length) { toast('No hay catálogo cargado para reagrupar','err'); return; }
   showLoading('Reagrupando catálogo...');
   try {
+    const sourceProducts = await productSourceList();
     setLoadingText('Descargando jerarquía maestro...');
     const catalogMaster = await loadCatalogMasterFromFirebase();
     if (!catalogMaster.available) {
       toast(`No se pudo usar la jerarquía maestro: ${catalogMaster.error || 'no disponible'}`,'err');
       return;
     }
-    setLoadingText(`Reagrupando ${prods.length} productos...`);
-    const parsed = regroupProductsWithCatalogMaster(prods, catalogMaster);
+    setLoadingText(`Reagrupando ${sourceProducts.length} productos...`);
+    const parsed = regroupProductsWithCatalogMaster(sourceProducts, catalogMaster);
     const filtered = applyProductVisibilityRules(parsed.products, parsed.log);
     if (!filtered.products.length) { toast('No se encontraron productos para reagrupar','err'); return; }
     const updatedAt = new Date().toISOString();
@@ -7078,20 +7114,21 @@ async function confirmRegroupCatalog() {
     const previousLog = LS.get('product_import_log') || {};
     const log = {...filtered.log, version, updatedAt, updatedBy:currentUser?.name||'Administrador', fileName:previousLog.fileName || 'Reagrupación sin recarga de archivo'};
     prods = filtered.products;
-    setLoadingText('Guardando catálogo reagrupado localmente...');
+    setLoadingText('Guardando catálogo completo reagrupado...');
+    const sourceSaved = await setListCache(FITFLOW_PRODUCT_SOURCE_CACHE_KEY, parsed.products, version);
     const saved = await setListCache('prods', prods, version);
     LS._setLocal('prods_source','admin_upload');
     LS._setLocal('prods_version',version);
-    LS._setLocal('prods_updated_at',updatedAt);
+    LS._setLocal('prods_regrouped_at',updatedAt);
     LS._setLocal('prods_updated_by',currentUser?.name||'Administrador');
     LS._setLocal('product_import_log',log);
     updateProductLogUI();
     setLoadingText('Publicando catálogo reagrupado en Firebase...');
-    await syncProductsToFirebase(prods, {version, updatedAt, updatedBy:currentUser?.name||'Administrador', fileName:log.fileName, log});
+    await syncProductsToFirebase(parsed.products, {version, updatedAt, sourceUpdatedAt:LS.get('prods_updated_at')||updatedAt, regroupedAt:updatedAt, visibleCount:prods.length, updatedBy:currentUser?.name||'Administrador', fileName:log.fileName, log});
     document.getElementById('adm-prod-count').textContent=prods.length+' productos';
     updateProductMetaUI();
     refreshAfterSync();
-    if (!saved) toast('El navegador no pudo guardar el catálogo localmente','warn');
+    if (!saved || !sourceSaved) toast('El navegador no pudo guardar completamente el catálogo local','warn');
     toast(`Catálogo reagrupado: ${log.classified} clasificados · ${log.unclassified} sin clasificación`,'ok','long');
   } catch(e) {
     console.log('Catalog regroup error:', e?.message || e);
@@ -7114,9 +7151,12 @@ async function syncProductsToFirebase(list, meta) {
   const metaSummary = {
     version: meta.version,
     updatedAt: meta.updatedAt,
+    sourceUpdatedAt: meta.sourceUpdatedAt || meta.updatedAt,
+    regroupedAt: meta.regroupedAt || null,
     updatedBy: meta.updatedBy,
     fileName: meta.fileName || '',
     count: list.length,
+    visibleCount: Number(meta.visibleCount ?? list.length),
     chunks,
     chunkSize,
     stockCount: list.filter(p => parseStock(p.stock) !== null).length,
