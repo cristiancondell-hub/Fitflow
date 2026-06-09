@@ -2822,11 +2822,27 @@ function productsForCatNode(nodeId='') {
       return String(a.nom||'').localeCompare(String(b.nom||''), 'es', {numeric:true, sensitivity:'base'});
     });
 }
+function visibleCatalogProductCounts(state) {
+  const counts = new Map();
+  if (!state?.usesNodes) return counts;
+  const visibleCodes = new Set(prods.map(p => catalogCode(p?.cod)).filter(Boolean));
+  state.byCode?.forEach((item, code) => {
+    if (!visibleCodes.has(code)) return;
+    const nodeId = catalogProductNodeId(item, state);
+    if (!nodeId) return;
+    const pathIds = state.pathIdsByNode?.get(nodeId) || [nodeId];
+    pathIds.forEach(id => counts.set(id, (counts.get(id) || 0) + 1));
+  });
+  return counts;
+}
 function catChildren(path=[]) {
   const tree = activeCatalogTreeState();
   if (tree) {
     const parentId = path.length ? path[path.length-1] : '';
-    return (tree.childrenByParent?.get(parentId) || []).map(node => [node.name, tree.productCountsByNode?.get(node.id) || 0, node.id]);
+    const visibleCounts = visibleCatalogProductCounts(tree);
+    return (tree.childrenByParent?.get(parentId) || [])
+      .map(node => [node.name, visibleCounts.get(node.id) || 0, node.id])
+      .filter(([,count]) => count > 0);
   }
   const idx = path.length;
   const children = new Map();
