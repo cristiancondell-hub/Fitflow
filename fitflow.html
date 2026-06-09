@@ -6114,7 +6114,6 @@ function refreshVisibilityExceptionEmptyState(kind) {
   if (!list.querySelector('.vis-exception-row')) list.innerHTML = '<div class="modal-sub" style="padding:10px;">Sin productos en la lista.</div>';
 }
 let pendingVisibilityRulesModalHTML = '';
-let pendingVisibilityToggleHTML = '';
 let pendingVisibilityToggleState = null;
 function openVisibilityExceptionSearch(kind) {
   document.getElementById('vis-search-overlay')?.remove();
@@ -6185,46 +6184,49 @@ function confirmVisibilityEnabledToggle(el) {
   const previous = el.getAttribute('data-prev') === '1';
   const next = !!el.checked;
   if (previous === next) return;
-  pendingVisibilityToggleHTML = document.getElementById('modal-box')?.innerHTML || '';
+  el.checked = previous;
   pendingVisibilityToggleState = {previous, next};
   const turningOn = next;
-  openModal(`<div class="modal-title">${turningOn ? 'Activar reglas al publicar' : 'Desactivar reglas al publicar'}</div>
+  document.getElementById('vis-toggle-confirm-overlay')?.remove();
+  const box = document.getElementById('modal-box');
+  if (!box) return;
+  box.insertAdjacentHTML('beforeend', `<div class="vis-search-overlay" id="vis-toggle-confirm-overlay">
+    <div class="modal-title">${turningOn ? 'Activar reglas al publicar' : 'Desactivar reglas al publicar'}</div>
     <div class="modal-sub">${turningOn
       ? 'Activar estas reglas no cambia el catálogo actual. Será efectivo en la próxima Actualizar catálogo o Reagrupar catálogo.'
       : 'Desactivar estas reglas no cambia el catálogo actual. En la próxima Actualizar catálogo o Reagrupar catálogo se publicará el catálogo sin aplicar estas reglas.'}</div>
     <div class="modal-btns">
       <button class="btn-confirm" onclick="applyVisibilityEnabledToggle()">${turningOn ? 'Activar' : 'Desactivar'}</button>
       <button class="btn-cancel" onclick="cancelVisibilityEnabledToggle()">Cancelar</button>
-    </div>`);
-}
-function restoreVisibilityToggleModal() {
-  if (pendingVisibilityToggleHTML) {
-    openModal(pendingVisibilityToggleHTML);
-    ['show','hide'].forEach(updateVisibilityExceptionSelection);
-  } else adminProductVisibilityRules();
+    </div>
+  </div>`);
 }
 function applyVisibilityEnabledToggle() {
   const state = pendingVisibilityToggleState;
-  restoreVisibilityToggleModal();
   const el = document.getElementById('vis-enabled');
   if (el && state) {
     el.checked = state.next;
     el.setAttribute('data-prev', state.next ? '1' : '0');
     updateVisibilityPublishOnlyState();
+    const savedRules = normalizeProductVisibilityRules({...productVisibilityRules(), enabled:state.next});
+    LS.set('product_visibility_rules', savedRules);
+    updateProductVisibilityRulesUI();
+    toast(state.next
+      ? 'Evaluación activada. Será efectiva en la próxima carga o reagrupación.'
+      : 'Evaluación desactivada. Será efectiva en la próxima carga o reagrupación.', 'ok', 'long');
   }
-  pendingVisibilityToggleHTML = '';
+  document.getElementById('vis-toggle-confirm-overlay')?.remove();
   pendingVisibilityToggleState = null;
 }
 function cancelVisibilityEnabledToggle() {
   const state = pendingVisibilityToggleState;
-  restoreVisibilityToggleModal();
   const el = document.getElementById('vis-enabled');
   if (el && state) {
     el.checked = state.previous;
     el.setAttribute('data-prev', state.previous ? '1' : '0');
     updateVisibilityPublishOnlyState();
   }
-  pendingVisibilityToggleHTML = '';
+  document.getElementById('vis-toggle-confirm-overlay')?.remove();
   pendingVisibilityToggleState = null;
 }
 function updateVisibilityPublishOnlyState() {
