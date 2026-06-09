@@ -1,4 +1,4 @@
-﻿const FITFLOW_CACHE = 'fitflow-prod-shell-2026-06-04-01';
+﻿const FITFLOW_CACHE = 'fitflow-prod-shell-2026-06-08-01';
 const FITFLOW_APP_SHELL = [
   './fitflow.html',
   './fitflow_manifest.webmanifest'

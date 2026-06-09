@@ -339,21 +339,14 @@ html,body{height:100%;overflow:hidden;font-family:'Barlow',sans-serif;background
 .login-logo-text{font-family:'Barlow Condensed',sans-serif;font-size:40px;font-weight:800;color:#fff;letter-spacing:2px;line-height:1;}
 .login-logo-sub{font-size:14px;color:rgba(255,255,255,.62);font-weight:700;letter-spacing:.6px;text-transform:none;margin:6px auto 0;line-height:1.25;max-width:360px;}
 .login-box{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.13);border-radius:18px;padding:22px;width:100%;max-width:340px;}
-.login-field-label{font-size:10px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:1px;text-transform:uppercase;margin-bottom:7px;}
-#login-user-sel{width:100%;padding:11px 13px;border-radius:var(--r);border:none;background:rgba(255,255,255,.12);color:#fff;font-size:15px;font-family:'Barlow',sans-serif;font-weight:600;outline:none;margin-bottom:18px;appearance:none;-webkit-appearance:none;}
-#login-user-sel option{background:#1a3d8f;color:#fff;}
-.pin-inp-wrap{position:relative;margin-bottom:6px;}
-#pin-input{width:100%;padding:13px 44px 13px 14px;border-radius:var(--r);border:2px solid rgba(255,255,255,.2);background:rgba(255,255,255,.1);color:#fff;font-size:22px;font-family:'Barlow Condensed',sans-serif;font-weight:800;letter-spacing:8px;outline:none;caret-color:transparent;}
-#pin-input::placeholder{letter-spacing:2px;font-size:14px;color:rgba(255,255,255,.35);font-weight:500;}
-#pin-input:focus{border-color:rgba(255,255,255,.5);}
-.pin-eye{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:rgba(255,255,255,.4);padding:4px;}
-.pin-eye svg{width:18px;height:18px;display:block;}
-.btn-login{width:100%;margin-top:14px;padding:13px;border-radius:var(--r);border:none;background:var(--green2);color:#fff;font-size:16px;font-weight:800;font-family:'Barlow Condensed',sans-serif;letter-spacing:.5px;cursor:pointer;}
+.login-title{font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:800;color:#fff;text-align:center;line-height:1.05;}
+.login-intro{font-size:13px;color:rgba(255,255,255,.66);font-weight:600;line-height:1.4;text-align:center;margin:7px 0 18px;}
 .login-sep{display:flex;align-items:center;gap:10px;margin:16px 0 10px;color:rgba(255,255,255,.38);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;}
 .login-sep::before,.login-sep::after{content:'';height:1px;background:rgba(255,255,255,.16);flex:1;}
 .btn-google-login{width:100%;padding:12px;border-radius:var(--r);border:1px solid rgba(255,255,255,.22);background:#fff;color:#172554;font-size:14px;font-weight:800;font-family:'Barlow',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px;}
 .btn-google-login svg{width:18px;height:18px;display:block;}
-.btn-email-login{width:100%;padding:12px;border-radius:var(--r);border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.12);color:#fff;font-size:14px;font-weight:800;font-family:'Barlow',sans-serif;cursor:pointer;margin-top:8px;}
+.btn-email-login{width:100%;padding:12px;border-radius:var(--r);border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.12);color:#fff;font-size:14px;font-weight:800;font-family:'Barlow',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px;}
+.btn-email-login svg{width:18px;height:18px;display:block;}
 .login-help{margin-top:9px;color:rgba(255,255,255,.48);font-size:11px;font-weight:600;line-height:1.3;text-align:center;}
 
 /* ── MODAL ── */
@@ -467,23 +460,17 @@ html,body{height:100%;overflow:hidden;font-family:'Barlow',sans-serif;background
     <div class="login-logo-sub">FITFLOW - Sistema de Pedidos de Venta</div>
   </div>
   <div class="login-box">
-    <div class="login-field-label">Usuario</div>
-    <select id="login-user-sel"></select>
-    <div class="login-field-label">PIN</div>
-    <div class="pin-inp-wrap">
-      <input id="pin-input" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="Ingresa tu PIN" autocomplete="off">
-      <button class="pin-eye" onclick="togglePinVis()" tabindex="-1">
-        <svg id="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-      </button>
-    </div>
-    <div style="color:#ff6b6b;font-size:12px;font-weight:600;text-align:center;margin-top:8px;min-height:18px;" id="pin-err"></div>
-    <button class="btn-login" onclick="doLogin()">Ingresar</button>
-    <div class="login-sep">o</div>
+    <div class="login-title">Ingresa a FITFLOW</div>
+    <div class="login-intro">Accede con una cuenta autorizada de Centro Fitting.</div>
     <button class="btn-google-login" onclick="doGoogleLogin()">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06L5.84 9.9C6.71 7.3 9.14 5.38 12 5.38z"/></svg>
       Ingresar con Google
     </button>
-    <button class="btn-email-login" onclick="openEmailLoginModal()">Ingresar con correo</button>
+    <div class="login-sep">o</div>
+    <button class="btn-email-login" onclick="openEmailLoginModal()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+      Ingresar con correo
+    </button>
     <div class="login-help">El correo debe estar autorizado en Admin.</div>
   </div>
 </div>
@@ -638,7 +625,7 @@ html,body{height:100%;overflow:hidden;font-family:'Barlow',sans-serif;background
           <h3>Parametrizacion general</h3>
           <div class="admin-item" onclick="adminEmail()">
             <div class="admin-item-icon" style="background:#e3f2fd"><svg viewBox="0 0 24 24" fill="none" stroke="#1565c0" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div>
-            <div><div class="admin-item-label">Email Central para envío de documentos</div><div class="admin-item-sub" id="adm-email-val">—</div></div>
+            <div><div class="admin-item-label">Correos centrales de envío</div><div class="admin-item-sub" id="adm-email-val">—</div></div>
           </div>
           <div class="admin-item" onclick="adminCompanyConfig()">
             <div class="admin-item-icon" style="background:#eef2ff"><svg viewBox="0 0 24 24" fill="none" stroke="#1a3d8f" stroke-width="2"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/><path d="M9 9h1M9 13h1M9 17h1"/></svg></div>
@@ -799,8 +786,8 @@ let activeOrderId = null;
 let firebaseSyncStarted = false;
 let lastAuthRecheckAt = 0;
 const DEFAULT_VENDORS = [
-  {name:'Administrador',pin:'0000',isAdmin:true,role:'supra_admin',email:'',phone:'',codigo:'',maxProductDiscount:0,maxServiceDiscount:0},
-  {name:'Vendedor 1',pin:'1111',isAdmin:false,role:'vendedor',email:'',phone:'',codigo:'',maxProductDiscount:0,maxServiceDiscount:0}
+  {name:'Administrador',pin:'',isAdmin:true,role:'supra_admin',email:'',phone:'',codigo:'',maxProductDiscount:0,maxServiceDiscount:0},
+  {name:'Vendedor 1',pin:'',isAdmin:false,role:'vendedor',email:'',phone:'',codigo:'',maxProductDiscount:0,maxServiceDiscount:0}
 ];
 const DEFAULT_PAYMENT_CONDITIONS = ['Contado','Transferencia','Credito 30 dias'];
 const DEFAULT_PRODUCT_VISIBILITY_RULES = {
@@ -943,7 +930,7 @@ function syncToFirebase(k, v) {
 function loadState() {
   if (!LS.get('vendors')) LS.set('vendors',DEFAULT_VENDORS);
   if (!LS.get('payment_conditions')) LS.set('payment_conditions',DEFAULT_PAYMENT_CONDITIONS);
-  if (!LS.get('email'))  LS.set('email','ventas@centrofitting.cl');
+  if (!LS.get('email'))  LS.set('email',['ventas@centrofitting.cl']);
   if (!LS.get('company_config')) LS.set('company_config',DEFAULT_COMPANY_CONFIG);
   if (!LS.get('product_visibility_rules')) LS._setLocal('product_visibility_rules',DEFAULT_PRODUCT_VISIBILITY_RULES);
   if (!LS.get('orders')) LS.set('orders',[]);
@@ -1632,8 +1619,7 @@ async function loadFromFirebase(opts={}) {
     // Email
     if (eSnap.exists()) {
       LS._setLocal('email', eSnap.data().value);
-      const el = document.getElementById('adm-email-val');
-      if (el) el.textContent = eSnap.data().value;
+      updateCentralEmailsUI();
     }
     if (paySnap.exists() && Array.isArray(paySnap.data().value)) {
       LS._setLocal('payment_conditions', paySnap.data().value);
@@ -2074,7 +2060,7 @@ function normalizeVendorRole(v={}, idx=0) {
 function normalizeVendor(v={}, idx=0) {
   const role = normalizeVendorRole(v, idx);
   const phone = normalizePhone(v.phone || v.telefono || '');
-  return {...v, phone, role, isAdmin:role === 'admin' || role === 'supra_admin'};
+  return {...v, pin:'', phone, role, isAdmin:role === 'admin' || role === 'supra_admin'};
 }
 function formatChilePhone(v='') {
   const clean = normalizePhone(v);
@@ -2125,22 +2111,7 @@ function applyAdminVisibility() {
 
 // ══ LOGIN ═══════════════════════════════════════
 function buildLoginSelect() {
-  const sel = document.getElementById('login-user-sel');
-  const vendors = (LS.get('vendors')||DEFAULT_VENDORS).map(normalizeVendor);
-  sel.innerHTML = vendors.map((v,i)=>`<option value="${i}">${v.name}</option>`).join('');
-  sel.onchange = () => { document.getElementById('pin-input').value=''; document.getElementById('pin-err').textContent=''; };
-}
-
-function togglePinVis() {
-  const inp = document.getElementById('pin-input');
-  const ico = document.getElementById('eye-icon');
-  if (inp.type==='password') {
-    inp.type='text';
-    ico.innerHTML='<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>';
-  } else {
-    inp.type='password';
-    ico.innerHTML='<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
-  }
+  // Se conserva como puente para las cargas de configuración existentes.
 }
 
 function setHeaderUserAvatar(name, photoURL='') {
@@ -2156,7 +2127,7 @@ function setHeaderUserAvatar(name, photoURL='') {
 
 function enterWithVendor(v, idx, authInfo={}) {
   v = normalizeVendor(v, idx);
-  currentUser = {...v, idx, authProvider:authInfo.provider || 'pin', authEmail:authInfo.email || normalizeEmail(v.email||''), authPhotoURL:authInfo.photoURL || ''};
+  currentUser = {...v, idx, authProvider:authInfo.provider || 'email', authEmail:authInfo.email || normalizeEmail(v.email||''), authPhotoURL:authInfo.photoURL || ''};
   saveFitFlowSession(v, idx, authInfo);
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='flex';
@@ -2168,7 +2139,7 @@ function enterWithVendor(v, idx, authInfo={}) {
   updateCompanyConfigUI();
   updatePaymentConditionsUI();
   updateProductVisibilityRulesUI();
-  document.getElementById('adm-email-val').textContent  = LS.get('email')||'—';
+  updateCentralEmailsUI();
   document.getElementById('adm-prod-count').textContent = prods.length+' productos';
   document.getElementById('adm-cli-count').textContent  = clients.length+' clientes';
   updateProductMetaUI();
@@ -2183,22 +2154,6 @@ function enterWithVendor(v, idx, authInfo={}) {
   syncAfterLogin();
 }
 
-function doLogin() {
-  const vendors = (LS.get('vendors')||DEFAULT_VENDORS).map(normalizeVendor);
-  const idx = parseInt(document.getElementById('login-user-sel').value);
-  const pin = document.getElementById('pin-input').value;
-  const v = vendors[idx];
-  if (!v) return;
-  if (pin===v.pin) {
-    enterWithVendor(v, idx, {provider:'pin'});
-  } else {
-    document.getElementById('pin-err').textContent='PIN incorrecto';
-    document.getElementById('pin-input').value='';
-    document.getElementById('pin-input').focus();
-  }
-}
-document.getElementById('pin-input').addEventListener('keydown',e=>{ if(e.key==='Enter') doLogin(); });
-
 function findAuthorizedVendorByEmail(email) {
   const clean = normalizeEmail(email);
   const vendors = (LS.get('vendors')||DEFAULT_VENDORS).map(normalizeVendor);
@@ -2211,10 +2166,9 @@ function readFitFlowSession() {
   catch(e) { return null; }
 }
 function saveFitFlowSession(v={}, idx=0, authInfo={}) {
-  const provider = authInfo.provider || 'pin';
+  const provider = authInfo.provider || 'email';
   const email = normalizeEmail(authInfo.email || v.email || '');
-  if (!['google','email','pin'].includes(provider)) return;
-  if (['google','email'].includes(provider) && !email) return;
+  if (!['google','email'].includes(provider) || !email) return;
   const now = Date.now();
   localStorage.setItem('ff2_'+FITFLOW_SESSION_KEY, JSON.stringify({
     email,
@@ -2268,15 +2222,10 @@ async function restoreFitFlowAuthSession(authUser=null, opts={}) {
   const session = readFitFlowSession();
   const email = normalizeEmail(authUser?.email || session?.email || '');
   const provider = session?.provider || (authUser ? 'google' : '');
-  if (provider === 'pin') {
-    const vendors = (LS.get('vendors')||DEFAULT_VENDORS).map(normalizeVendor);
-    const idx = Number(session?.vendorIdx);
-    const vendor = Number.isInteger(idx) && vendors[idx] ? vendors[idx] : vendors.find(v => v.name === session?.vendorName);
-    if (!vendor) return false;
-    enterWithVendor(vendor, Number.isInteger(idx) ? idx : vendors.indexOf(vendor), {provider:'pin'});
-    return true;
+  if (!email || !['google','email'].includes(provider)) {
+    if (session) clearFitFlowSession();
+    return false;
   }
-  if (!email || !['google','email'].includes(provider)) return false;
   const result = await validateFitFlowSessionEmail(email, {provider});
   if (!result.ok) {
     if (navigator.onLine !== false && result.reason === 'no_autorizado') clearFitFlowSession();
@@ -2300,10 +2249,7 @@ async function revalidateCurrentSession(opts={}) {
 }
 
 async function doGoogleLogin() {
-  const err = document.getElementById('pin-err');
-  if (err) err.textContent = '';
   if (!window._fbAuth || !window._fbGoogleProvider || !window._fbSDK?.signInWithPopup) {
-    if (err) err.textContent = 'Google Login no está disponible todavía';
     toast('Google Login no está disponible todavía','err');
     return;
   }
@@ -2313,13 +2259,12 @@ async function doGoogleLogin() {
     const email = normalizeEmail(result?.user?.email || '');
     hideLoading();
     if (!email) {
-      if (err) err.textContent = 'Google no entregó correo';
+      toast('Google no entregó un correo válido','err');
       return;
     }
     const authorized = findAuthorizedVendorByEmail(email);
     if (!authorized) {
       await window._fbSDK.signOut?.(window._fbAuth).catch(()=>{});
-      if (err) err.textContent = 'Correo no autorizado en FitFlow';
       toast('Correo Google no autorizado en Admin','err');
       return;
     }
@@ -2333,7 +2278,6 @@ async function doGoogleLogin() {
       : code === 'auth/operation-not-allowed' ? 'Google no está habilitado en Firebase Auth'
       : code ? `Google Login: ${code}` : 'No se pudo ingresar con Google';
     console.log('Google login error:', code, e?.message || e);
-    if (err) err.textContent = msg;
     toast(msg,'warn');
   }
 }
@@ -2512,8 +2456,6 @@ function logout() {
   firebaseSyncStarted = false;
   clearFitFlowSession();
   window._fbSDK?.signOut?.(window._fbAuth).catch(()=>{});
-  document.getElementById('pin-input').value='';
-  document.getElementById('pin-err').textContent='';
   document.getElementById('login-screen').style.display='flex';
   document.getElementById('app').style.display='none';
   buildLoginSelect();
@@ -3465,6 +3407,18 @@ function clientEmailBlock(c) {
 }
 function normalizeEmail(v) { return String(v||'').trim().toLowerCase(); }
 function isValidEmail(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizeEmail(v)); }
+function centralEmails(value=LS.get('email')) {
+  const values = Array.isArray(value) ? value : String(value||'').split(/[\n,;]+/);
+  return [...new Set(values.map(normalizeEmail).filter(isValidEmail))];
+}
+function centralEmailsText(value=LS.get('email')) {
+  const emails = centralEmails(value);
+  return emails.length ? emails.join(', ') : '—';
+}
+function updateCentralEmailsUI() {
+  const el = document.getElementById('adm-email-val');
+  if (el) el.textContent = centralEmailsText();
+}
 function normalizePhone(v) {
   const digits = String(v||'').replace(/\D/g,'');
   if (!digits) return '';
@@ -4888,7 +4842,7 @@ async function launchEmail(email, subject, body, htmlBody=null) {
   <div class="modal-btns"><button class="btn-confirm-green" onclick="openPendingEmailSubject()">Abrir correo</button><button class="btn-cancel" onclick="closeModal()">Cerrar</button></div>`);
 }
 
-async function sendDocumentDirect(orderData, recipients) {
+async function sendDocumentDirectSingle(orderData, recipients) {
   let pdfAttachment = null;
   let erpFlatAttachment = null;
   try {
@@ -4980,6 +4934,42 @@ async function sendDocumentDirect(orderData, recipients) {
     });
     throw err;
   }
+}
+
+async function sendDocumentDirect(orderData, recipients) {
+  const adminEmails = centralEmails(recipients.adminEmails || recipients.adminEmail);
+  if (!adminEmails.length) throw new Error('No hay correos centrales configurados');
+  const combined = {ok:true, sends:[], failures:[]};
+  for (let i=0; i<adminEmails.length; i++) {
+    const oneRecipient = {
+      ...recipients,
+      adminEmail:adminEmails[i],
+      vendorEmail:i === 0 ? (recipients.vendorEmail||'') : '',
+      clientEmail:i === 0 ? (recipients.clientEmail||'') : '',
+      clientCcEmail:i === 0 ? (recipients.clientCcEmail||'') : '',
+      clientPhone:i === 0 ? (recipients.clientPhone||'') : ''
+    };
+    try {
+      const result = await sendDocumentDirectSingle(orderData, oneRecipient);
+      combined.sends.push(...(result.sends||[]));
+      combined.failures.push(...(result.failures||[]));
+    } catch(e) {
+      const partial = e.result || {};
+      combined.sends.push(...(partial.sends||[]));
+      combined.failures.push(...(partial.failures||[{
+        kind:'central',
+        to:adminEmails[i],
+        error:e.message || 'Error de envío'
+      }]));
+    }
+  }
+  combined.ok = combined.failures.length === 0;
+  if (!combined.ok) {
+    const error = new Error(combined.failures.map(f=>`${f.to||'correo'}: ${f.error||'error de envío'}`).join(' · '));
+    error.result = combined;
+    throw error;
+  }
+  return combined;
 }
 
 function emailStatusLabel(o) {
@@ -5172,7 +5162,8 @@ function emailResultMessage(result, recipients) {
   const sends = result?.sends || [];
   const failures = result?.failures || [];
   const parts = [];
-  if (sends.some(x=>x.kind==='central')) parts.push(`Enviado a central: ${recipients.adminEmail}`);
+  const sentCentral = [...new Set(sends.filter(x=>x.kind==='central').map(x=>x.to).filter(Boolean))];
+  if (sentCentral.length) parts.push(`Enviado a central: ${sentCentral.join(', ')}`);
   if (sends.some(x=>x.kind==='cliente')) {
     let txt = `a cliente: ${recipients.clientEmail}`;
     if (recipients.clientCcEmail) txt += ` con copia a ${recipients.clientCcEmail}`;
@@ -5232,8 +5223,8 @@ async function sendPedido(docType='cotizacion', sendMode='central', confirmedMul
   if (adjustedDiscounts) renderCart();
   if (!selectedClient) { toast('Selecciona un cliente primero','warn'); openCliModal(); return; }
   if (isTestClient(selectedClient) && !isSupraAdmin()) { toast('Cliente de prueba disponible solo para Supra','err'); return; }
-  const adminEmail=normalizeEmail(LS.get('email')||'');
-  if (!isValidEmail(adminEmail)) { toast('Configura el Email Central para envío de documentos en Admin','err'); return; }
+  const adminEmails=centralEmails();
+  if (!adminEmails.length) { toast('Configura al menos un correo central de envío en Admin','err'); return; }
   const paymentCondition = currentPaymentCondition || document.getElementById('cart-payment-condition')?.value || '';
   if (!paymentCondition) { toast('Selecciona la condicion de pago antes de enviar','err'); goTab('carrito'); return; }
   const paymentConditionCode = paymentConditionCodeFor(paymentCondition);
@@ -5297,7 +5288,7 @@ async function sendPedido(docType='cotizacion', sendMode='central', confirmedMul
     emailStatus:'pendiente',
     emailStatusUpdatedAt:'',
     emailRecipients:{
-      central:adminEmail,
+      central:adminEmails,
       vendedor:vendorEmail,
       cliente:sendMode === 'both' ? clientEmail : '',
       copia:sendMode === 'both' ? clientCcEmail : '',
@@ -5346,7 +5337,7 @@ async function sendPedido(docType='cotizacion', sendMode='central', confirmedMul
   LS.set('orders',orders);
   syncOrderToFirebase(orderData, 'enviar_documento_pre_envio');
   showLoading('Enviando correo...');
-  const recipients = {adminEmail, vendorEmail, clientEmail:sendMode === 'both' ? clientEmail : '', clientCcEmail:sendMode === 'both' ? clientCcEmail : '', clientPhone:sendMode === 'both' ? clientPhone : ''};
+  const recipients = {adminEmails, adminEmail:adminEmails[0], vendorEmail, clientEmail:sendMode === 'both' ? clientEmail : '', clientCcEmail:sendMode === 'both' ? clientCcEmail : '', clientPhone:sendMode === 'both' ? clientPhone : ''};
   try {
     const result = await sendDocumentDirect(orderData, recipients);
     orderData.emailStatus='enviado';
@@ -5587,7 +5578,7 @@ function showOrderDetail(id) {
   const o=visibleOrders(LS.get('orders')||[]).find(x=>x.id===id); if(!o) return;
   const docLabel = o.documentNumber ? `${o.documentTitle||DOC_TYPES[o.docType]?.label||'Documento'} ${o.documentNumber}` : '';
   const sentLines = o.emailRecipients ? [
-    o.emailRecipients.central ? `Central: ${o.emailRecipients.central}` : '',
+    centralEmails(o.emailRecipients.central).length ? `Central: ${centralEmailsText(o.emailRecipients.central)}` : '',
     o.emailRecipients.vendedor ? `Copia vendedor: ${o.emailRecipients.vendedor}` : '',
     o.emailRecipients.cliente ? `Cliente: ${o.emailRecipients.cliente}` : '',
     o.emailRecipients.copia ? `Copia cliente: ${o.emailRecipients.copia}` : '',
@@ -5625,8 +5616,8 @@ function showOrderDetail(id) {
 
 async function resendOrder(id) {
   const o=(LS.get('orders')||[]).find(x=>x.id===id); if(!o) return;
-  const adminEmail=normalizeEmail(o.emailRecipients?.central || LS.get('email') || '');
-  if (!isValidEmail(adminEmail)) { toast('Configura el Email Central para envío de documentos en Admin','err'); return; }
+  const adminEmails=centralEmails(o.emailRecipients?.central || LS.get('email'));
+  if (!adminEmails.length) { toast('Configura al menos un correo central de envío en Admin','err'); return; }
   if (!o.documentNumber || !o.docType) {
     toast('Este registro antiguo no tiene tipo de documento','warn');
     return;
@@ -5637,7 +5628,7 @@ async function resendOrder(id) {
   }
   const cfg = DOC_TYPES[o.docType] || DOC_TYPES.cotizacion;
   showLoading('Reenviando correo...');
-  const recipients = {adminEmail, vendorEmail:o.emailRecipients?.vendedor||'', clientEmail:o.emailRecipients?.cliente||'', clientCcEmail:o.emailRecipients?.copia||'', clientPhone:o.emailRecipients?.telefono||''};
+  const recipients = {adminEmails, adminEmail:adminEmails[0], vendorEmail:o.emailRecipients?.vendedor||'', clientEmail:o.emailRecipients?.cliente||'', clientCcEmail:o.emailRecipients?.copia||'', clientPhone:o.emailRecipients?.telefono||''};
   try {
     if (o.docType === 'nota_venta' && !o.erpFlatFile?.content) {
       const flat = buildErpFlatFileRecord(o);
@@ -5914,16 +5905,36 @@ function deleteTestClient(id) {
 
 function adminEmail() {
   if (!requireSupraAccess()) return;
-  openModal(`<div class="modal-title">Email Central para envío de documentos</div>
-  <label class="modal-lbl">Email</label>
-  <input class="modal-inp" id="adm-email-inp" type="email" value="${LS.get('email')||''}" placeholder="ventas@empresa.cl">
+  const rows = centralEmails().map(centralEmailRowHTML).join('');
+  openModal(`<div class="modal-title">Correos centrales de envío</div>
+  <div class="modal-sub">Cada documento se enviará a todos los correos de esta lista.</div>
+  <div id="central-email-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;">${rows}</div>
+  <button class="btn-add-vendor" style="margin-bottom:12px;" onclick="addCentralEmailRow()">+ Agregar correo</button>
   <div class="modal-btns"><button class="btn-cancel" onclick="closeModal()">Cancelar</button><button class="btn-confirm" onclick="saveAdmEmail()">Guardar</button></div>`);
+}
+function centralEmailRowHTML(value='') {
+  return `<div class="central-email-row" style="display:flex;gap:8px;align-items:center;">
+    <input class="modal-inp central-email-input" type="email" value="${escEmailHtml(value)}" placeholder="correo@centrofitting.cl" autocomplete="email" style="margin-bottom:0;">
+    <button class="vendor-del-btn" type="button" title="Eliminar correo" aria-label="Eliminar correo" style="height:38px;width:38px;" onclick="this.closest('.central-email-row').remove()">×</button>
+  </div>`;
+}
+function addCentralEmailRow() {
+  const list = document.getElementById('central-email-list');
+  if (!list) return;
+  list.insertAdjacentHTML('beforeend', centralEmailRowHTML(''));
+  list.lastElementChild?.querySelector('input')?.focus();
 }
 function saveAdmEmail() {
   if (!requireSupraAccess()) return;
-  const v=document.getElementById('adm-email-inp').value.trim();
-  if(!v){toast('Ingresa un email válido','err');return;}
-  LS.set('email',v); document.getElementById('adm-email-val').textContent=v; closeModal(); toast('Email guardado ✓','ok');
+  const raw = [...document.querySelectorAll('.central-email-input')].map(el=>el.value.trim()).filter(Boolean);
+  if (!raw.length) { toast('Agrega al menos un correo central','err'); return; }
+  const invalid = raw.find(v=>!isValidEmail(v));
+  if (invalid) { toast(`Correo inválido: ${invalid}`,'err'); return; }
+  const emails = centralEmails(raw);
+  LS.set('email',emails);
+  updateCentralEmailsUI();
+  closeModal();
+  toast(`${emails.length} correo${emails.length===1?'':'s'} central${emails.length===1?'':'es'} guardado${emails.length===1?'':'s'} ✓`,'ok');
 }
 
 function adminPaymentConditions() {
@@ -7393,7 +7404,6 @@ function renderVendorList() {
   const vendors=(LS.get('vendors')||[]).map(normalizeVendor);
   document.getElementById('vendor-list').innerHTML=vendors.map((v,i)=>`<div class="vendor-row">
     <div class="vendor-name">${escEmailHtml(v.name)} <span class="vendor-discount-tag">${escEmailHtml(roleLabel(v.role))}</span> <span class="vendor-discount-tag">${vendorDiscountLabel(v)}</span><div style="font-size:11px;font-weight:700;color:var(--text3);margin-top:2px;">${v.email ? escEmailHtml(v.email) : 'Sin correo'}${v.phone ? ' · '+escEmailHtml(formatChilePhone(v.phone)) : ' · Sin telefono'}</div></div>
-    <div class="vendor-pin" title="PIN">${v.pin}</div>
     <div class="vendor-pin" title="Codigo ERP">${escEmailHtml(v.codigo||'----')}</div>
     <button class="vendor-edit-btn" onclick="editVendor(${i})">Editar</button>
     ${!v.isAdmin?`<button class="vendor-del-btn" onclick="delVendor(${i})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>`:''}
@@ -7404,16 +7414,15 @@ function editVendor(i) {
   if (!requireSupraAccess()) return;
   const vendors=(LS.get('vendors')||[]).map(normalizeVendor);
   const isNew = i === 'new' || i < 0;
-  const v=isNew ? {name:'',pin:'',codigo:'',email:'',phone:'',role:'vendedor',maxProductDiscount:0,maxServiceDiscount:0,isAdmin:false} : vendors[i];
+  const v=isNew ? {name:'',codigo:'',email:'',phone:'',role:'vendedor',maxProductDiscount:0,maxServiceDiscount:0,isAdmin:false} : vendors[i];
   if (!v) return;
   const roleOptions = Object.keys(USER_ROLES).map(role=>`<option value="${role}" ${normalizeVendorRole(v,i)===role?'selected':''}>${roleLabel(role)}</option>`).join('');
   openModal(`<div class="modal-title">${isNew ? 'Agregar usuario' : 'Editar usuario'}</div>
   <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;">
     <div><label class="modal-lbl">Nombre</label><input class="modal-inp" id="edit-v-name" value="${escEmailHtml(v.name)}" autocomplete="off" style="margin-bottom:0"></div>
     <div><label class="modal-lbl">Rol</label><select class="modal-inp" id="edit-v-role" style="margin-bottom:0">${roleOptions}</select></div>
-    <div><label class="modal-lbl">PIN (4 digitos)</label><input class="modal-inp" id="edit-v-pin" type="tel" maxlength="4" value="${escEmailHtml(v.pin)}" style="margin-bottom:0"></div>
     <div><label class="modal-lbl">Codigo usuario ERP</label><input class="modal-inp" id="edit-v-code" type="tel" inputmode="numeric" maxlength="4" value="${escEmailHtml(v.codigo||'')}" autocomplete="off" placeholder="Ej: 0004" style="margin-bottom:0"></div>
-    <div><label class="modal-lbl">Correo vendedor</label><input class="modal-inp" id="edit-v-email" type="email" value="${escEmailHtml(v.email||'')}" autocomplete="email" placeholder="vendedor@empresa.cl" style="margin-bottom:0"></div>
+    <div><label class="modal-lbl">Correo de acceso</label><input class="modal-inp" id="edit-v-email" type="email" value="${escEmailHtml(v.email||'')}" autocomplete="email" placeholder="usuario@empresa.cl" style="margin-bottom:0"></div>
     <div><label class="modal-lbl">Telefono vendedor</label><input class="modal-inp" id="edit-v-phone" type="tel" inputmode="tel" value="${escEmailHtml(formatChilePhone(v.phone||''))}" autocomplete="tel" placeholder="+56912345678" style="margin-bottom:0"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
       <div><label class="modal-lbl">Desc. max productos</label><div class="percent-input-wrap"><input class="modal-inp" id="edit-v-max-prod" type="number" inputmode="numeric" min="0" max="100" value="${normalizeDiscountLimit(v.maxProductDiscount)}" onfocus="selectQtyInput(this)" onclick="selectQtyInput(this)" style="margin-bottom:0"><span class="percent-input-symbol">%</span></div></div>
@@ -7424,23 +7433,27 @@ function editVendor(i) {
 }
 function saveEditVendor(i) {
   if (!requireSupraAccess()) return;
-  const name=document.getElementById('edit-v-name').value.trim(), role=document.getElementById('edit-v-role')?.value||'vendedor', pin=document.getElementById('edit-v-pin').value.trim(), codigo=document.getElementById('edit-v-code')?.value.trim()||'', email=normalizeEmail(document.getElementById('edit-v-email')?.value||''), phone=normalizePhone(document.getElementById('edit-v-phone')?.value||''), maxProductDiscount=normalizeDiscountLimit(document.getElementById('edit-v-max-prod')?.value), maxServiceDiscount=normalizeDiscountLimit(document.getElementById('edit-v-max-serv')?.value);
+  const name=document.getElementById('edit-v-name').value.trim(), role=document.getElementById('edit-v-role')?.value||'vendedor', codigo=document.getElementById('edit-v-code')?.value.trim()||'', email=normalizeEmail(document.getElementById('edit-v-email')?.value||''), phone=normalizePhone(document.getElementById('edit-v-phone')?.value||''), maxProductDiscount=normalizeDiscountLimit(document.getElementById('edit-v-max-prod')?.value), maxServiceDiscount=normalizeDiscountLimit(document.getElementById('edit-v-max-serv')?.value);
   if(!name){toast('El nombre no puede estar vacío','err');return;}
   if(!USER_ROLES[role]){toast('Selecciona un rol valido','err');return;}
-  if(!/^\d{4}$/.test(pin)){toast('PIN debe ser 4 dígitos','err');return;}
   if(codigo && !/^\d{1,4}$/.test(codigo)){toast('Codigo usuario ERP debe ser numerico, maximo 4 digitos','err');return;}
-  if(email && !isValidEmail(email)){toast('Correo vendedor invalido','err');return;}
+  if(!isValidEmail(email)){toast('Cada usuario necesita un correo de acceso válido','err');return;}
   if(phone && !isValidChilePhone(phone)){toast('Telefono vendedor invalido. Ej: +56912345678','err');return;}
   const vendors=(LS.get('vendors')||[]).map(normalizeVendor);
+  const editingIdx = i === 'new' ? -1 : parseInt(i);
+  if (vendors.some((v,idx)=>idx !== editingIdx && normalizeEmail(v.email) === email)) {
+    toast('Ese correo ya está asignado a otro usuario','err');
+    return;
+  }
   const isAdmin = role === 'admin' || role === 'supra_admin';
   if (i === 'new') {
-    vendors.push({name,pin,codigo,email,phone,role,maxProductDiscount,maxServiceDiscount,isAdmin});
+    vendors.push({name,pin:'',codigo,email,phone,role,maxProductDiscount,maxServiceDiscount,isAdmin});
   } else {
     const idx=parseInt(i);
     if (!vendors[idx]) return;
     const wasLastSupra = vendors[idx].role === 'supra_admin' && role !== 'supra_admin' && supraAdminCount(vendors) <= 1;
     if (wasLastSupra) { toast('Debe quedar al menos un Supra Administrador','err','long'); return; }
-    vendors[idx].name=name; vendors[idx].role=role; vendors[idx].isAdmin=isAdmin; vendors[idx].pin=pin; vendors[idx].codigo=codigo; vendors[idx].email=email; vendors[idx].phone=phone; vendors[idx].maxProductDiscount=maxProductDiscount; vendors[idx].maxServiceDiscount=maxServiceDiscount;
+    vendors[idx].name=name; vendors[idx].role=role; vendors[idx].isAdmin=isAdmin; vendors[idx].pin=''; vendors[idx].codigo=codigo; vendors[idx].email=email; vendors[idx].phone=phone; vendors[idx].maxProductDiscount=maxProductDiscount; vendors[idx].maxServiceDiscount=maxServiceDiscount;
     if (currentUser?.idx === idx) {
       currentUser = {...vendors[idx], idx, authProvider:currentUser.authProvider, authEmail:currentUser.authEmail, authPhotoURL:currentUser.authPhotoURL};
       document.getElementById('hdr-uname').textContent=currentUser.name;
