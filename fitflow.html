@@ -1798,20 +1798,25 @@ async function preloadLoginConfig() {
   try {
     const { getDoc, doc } = window._fbSDK;
     const db = window._fbDB;
-    const [vSnap, eSnap, paySnap] = await Promise.all([
+    const [vResult, eResult, payResult] = await Promise.allSettled([
       getDoc(doc(db,'config','vendors')),
       getDoc(doc(db,'config','email')),
       getDoc(doc(db,'config','payment_conditions'))
     ]);
-    if (vSnap.exists() && Array.isArray(vSnap.data().value) && vSnap.data().value.length) {
+    const vSnap = vResult.status === 'fulfilled' ? vResult.value : null;
+    const eSnap = eResult.status === 'fulfilled' ? eResult.value : null;
+    const paySnap = payResult.status === 'fulfilled' ? payResult.value : null;
+    if (vSnap?.exists() && Array.isArray(vSnap.data().value) && vSnap.data().value.length) {
       LS._setLocal('vendors', vSnap.data().value);
       buildLoginSelect();
     }
-    if (eSnap.exists()) LS._setLocal('email', eSnap.data().value);
-    if (paySnap.exists() && Array.isArray(paySnap.data().value)) LS._setLocal('payment_conditions', paySnap.data().value);
-    await loadLogoFromFirebase('login');
-    await loadLogoFromFirebase('header');
-    await loadLogoFromFirebase('document');
+    if (eSnap?.exists()) LS._setLocal('email', eSnap.data().value);
+    if (paySnap?.exists() && Array.isArray(paySnap.data().value)) LS._setLocal('payment_conditions', paySnap.data().value);
+    await Promise.allSettled([
+      loadLogoFromFirebase('login'),
+      loadLogoFromFirebase('header'),
+      loadLogoFromFirebase('document')
+    ]);
     updateLogoMetaUI();
   } catch(e) { console.log('Firebase login preload error:', e.message); }
 }
@@ -2366,8 +2371,6 @@ async function sendPasswordReset() {
     return;
   }
   try {
-    const authorized = await fetchAuthorizedVendorByEmail(email);
-    if (!authorized) { toast('Correo no autorizado en FitFlow','err'); return; }
     await window._fbSDK.sendPasswordResetEmail(window._fbAuth, email, {
       url: currentFitFlowAuthUrl(),
       handleCodeInApp: true
@@ -2389,12 +2392,7 @@ async function handleFirebaseAuthAction() {
   try {
     showLoading('Validando enlace...');
     const email = normalizeEmail(await window._fbSDK.verifyPasswordResetCode(window._fbAuth, oobCode));
-    const authorized = await fetchAuthorizedVendorByEmail(email);
     hideLoading();
-    if (!authorized) {
-      toast('Correo no autorizado en FitFlow','err');
-      return;
-    }
     openResetPasswordModal(email, oobCode);
   } catch(e) {
     hideLoading();
@@ -7624,6 +7622,47 @@ function renderVendorList() {
   </div>`).join('');
 }
 
+async function syncFitFlowAccessDirectory(vendors=[], previousVendors=[]) {
+  if (!window._fbDB || !window._fbSDK?.setDoc) throw new Error('Firebase no disponible');
+  const { setDoc, doc } = window._fbSDK;
+  const current = new Map();
+  vendors.map(normalizeVendor).forEach(v => {
+    const email = normalizeEmail(v.email || '');
+    if (email) current.set(email, v);
+  });
+  const previous = new Map();
+  previousVendors.map(normalizeVendor).forEach(v => {
+    const email = normalizeEmail(v.email || '');
+    if (email) previous.set(email, v);
+  });
+  const updatedAt = new Date().toISOString();
+  const updatedBy = normalizeEmail(currentUser?.authEmail || currentUser?.email || '');
+  const writes = [];
+  current.forEach((v, email) => {
+    writes.push(setDoc(doc(window._fbDB,'fitflow_users',email), {
+      email,
+      name:v.name || '',
+      role:normalizeVendorRole(v),
+      active:true,
+      updatedAt,
+      updatedBy
+    }, {merge:true}));
+  });
+  previous.forEach((v, email) => {
+    if (!current.has(email)) {
+      writes.push(setDoc(doc(window._fbDB,'fitflow_users',email), {
+        email,
+        name:v.name || '',
+        role:normalizeVendorRole(v),
+        active:false,
+        updatedAt,
+        updatedBy
+      }, {merge:true}));
+    }
+  });
+  await Promise.all(writes);
+}
+
 function editVendor(i) {
   if (!requireSupraAccess()) return;
   const vendors=(LS.get('vendors')||[]).map(normalizeVendor);
@@ -7645,7 +7684,7 @@ function editVendor(i) {
   </div>
   <div class="modal-btns"><button class="btn-cancel" onclick="closeModal()">Cancelar</button><button class="btn-confirm" onclick="saveEditVendor('${isNew ? 'new' : i}')">Guardar</button></div>`);
 }
-function saveEditVendor(i) {
+async function saveEditVendor(i) {
   if (!requireSupraAccess()) return;
   const name=document.getElementById('edit-v-name').value.trim(), role=document.getElementById('edit-v-role')?.value||'vendedor', codigo=document.getElementById('edit-v-code')?.value.trim()||'', email=normalizeEmail(document.getElementById('edit-v-email')?.value||''), phone=normalizePhone(document.getElementById('edit-v-phone')?.value||''), maxProductDiscount=normalizeDiscountLimit(document.getElementById('edit-v-max-prod')?.value), maxServiceDiscount=normalizeDiscountLimit(document.getElementById('edit-v-max-serv')?.value);
   if(!name){toast('El nombre no puede estar vacío','err');return;}
@@ -7653,7 +7692,8 @@ function saveEditVendor(i) {
   if(codigo && !/^\d{1,4}$/.test(codigo)){toast('Codigo usuario ERP debe ser numerico, maximo 4 digitos','err');return;}
   if(!isValidEmail(email)){toast('Cada usuario necesita un correo de acceso válido','err');return;}
   if(phone && !isValidChilePhone(phone)){toast('Telefono vendedor invalido. Ej: +56912345678','err');return;}
-  const vendors=(LS.get('vendors')||[]).map(normalizeVendor);
+  const previousVendors=(LS.get('vendors')||[]).map(normalizeVendor);
+  const vendors=previousVendors.map(v => ({...v}));
   const editingIdx = i === 'new' ? -1 : parseInt(i);
   if (vendors.some((v,idx)=>idx !== editingIdx && normalizeEmail(v.email) === email)) {
     toast('Ese correo ya está asignado a otro usuario','err');
@@ -7675,8 +7715,19 @@ function saveEditVendor(i) {
       applyAdminVisibility();
     }
   }
-  LS.set('vendors',vendors);
-  renderVendorList(); buildLoginSelect(); closeModal(); toast(i === 'new' ? 'Vendedor agregado ✓' : 'Usuario actualizado ✓','ok');
+  try {
+    showLoading('Actualizando autorización...');
+    await syncFitFlowAccessDirectory(vendors, previousVendors);
+    await window._fbSDK.setDoc(window._fbSDK.doc(window._fbDB,'config','vendors'), {value:vendors});
+    LS._setLocal('vendors',vendors);
+    renderVendorList(); buildLoginSelect(); closeModal();
+    toast(i === 'new' ? 'Vendedor agregado ✓' : 'Usuario actualizado ✓','ok');
+  } catch(e) {
+    toast('No se pudo actualizar la autorización del usuario','err','long');
+    console.log('FitFlow access directory error:', e?.message || e);
+  } finally {
+    hideLoading();
+  }
 }
 
 function addVendor() {
@@ -7694,7 +7745,7 @@ function delVendor(i) {
   openModal(`<div class="modal-title">¿Eliminar usuario?</div><div class="modal-sub">Esta acción no se puede deshacer.</div>
   <div class="modal-btns"><button class="btn-cancel" onclick="closeModal()">Cancelar</button><button class="btn-danger" onclick="confirmDelVendor(${i})">Eliminar</button></div>`);
 }
-function confirmDelVendor(i) {
+async function confirmDelVendor(i) {
   if (!requireSupraAccess()) return;
   const vendors=(LS.get('vendors')||[]).map(normalizeVendor);
   if (vendors[i]?.role === 'supra_admin' && supraAdminCount(vendors) <= 1) {
@@ -7702,8 +7753,20 @@ function confirmDelVendor(i) {
     toast('No puedes eliminar el único Supra Administrador','err','long');
     return;
   }
-  vendors.splice(i,1); LS.set('vendors',vendors);
-  renderVendorList(); buildLoginSelect(); closeModal(); toast('Usuario eliminado','ok');
+  const previousVendors=vendors.map(v => ({...v}));
+  vendors.splice(i,1);
+  try {
+    showLoading('Revocando autorización...');
+    await syncFitFlowAccessDirectory(vendors, previousVendors);
+    await window._fbSDK.setDoc(window._fbSDK.doc(window._fbDB,'config','vendors'), {value:vendors});
+    LS._setLocal('vendors',vendors);
+    renderVendorList(); buildLoginSelect(); closeModal(); toast('Usuario eliminado','ok');
+  } catch(e) {
+    toast('No se pudo revocar la autorización del usuario','err','long');
+    console.log('FitFlow access revoke error:', e?.message || e);
+  } finally {
+    hideLoading();
+  }
 }
 
 // ══ UTILS ═══════════════════════════════════════
