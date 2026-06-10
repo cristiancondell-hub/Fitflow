@@ -1074,8 +1074,13 @@ async function clearBigCacheFamily(key) {
       const store = tx.objectStore('kv');
       const req = store.getAllKeys();
       req.onsuccess = () => {
+        const exactFamilyKeys = new Set([
+          key,
+          key+'_record',
+          key+'_chunk_meta'
+        ]);
         (req.result || [])
-          .filter(k => String(k) === key || String(k).startsWith(key+'_'))
+          .filter(k => exactFamilyKeys.has(String(k)) || String(k).startsWith(key+'_chunk_'))
           .forEach(k => store.delete(k));
       };
       req.onerror = () => reject(req.error);
@@ -1498,7 +1503,7 @@ function retryOrderSync() {
   syncDeletedOrdersToFirebase(LS.get('deleted_orders')||[]);
 }
 
-const PDF_DESIGN_VERSION = 'commercial_compact_2026_05_18_pdf_descuento_global';
+const PDF_DESIGN_VERSION = 'commercial_compact_2026_06_10_client_contact';
 function pdfNetworkTimeout(promise, ms, message) {
   let timer;
   const timeout = new Promise((_, reject) => {
@@ -4045,12 +4050,21 @@ function orderValidityDisplay(order={}) {
   return order.validUntil ? `Validez hasta: ${order.validUntil}` : `Validez documento: ${normalizeValidityDays(order.validityDays||7)} dias`;
 }
 
+function documentClientContact(order={}) {
+  const snapshot = order.clientContact || {};
+  return {
+    email: normalizeEmail(snapshot.email || order.emailRecipients?.cliente || order.cliente?.email || ''),
+    phone: formatChilePhone(snapshot.phone || order.emailRecipients?.telefono || order.cliente?.phone || order.cliente?.celular || '')
+  };
+}
+
 function buildDocumentBody(order, opts={}) {
   const cfg = DOC_TYPES[order.docType] || DOC_TYPES.cotizacion;
   const company = getCompanyConfig();
   const items = order.items || [];
   const totals = docTotals(items);
   const vendorContact = vendorContactText(order);
+  const clientContact = documentClientContact(order);
   const sep = '----------------------------------------';
   const testNotice = order.isTestClient ? 'CLIENTE DE PRUEBA - No usar como documento real.' : '';
   const reviewNotice = opts.central ? clientContactReviewText(order.clientContactReview) : '';
@@ -4101,6 +4115,8 @@ function buildDocumentBody(order, opts={}) {
     `Dirección: ${order.cliente?.direccion||''}`,
     `Comuna: ${order.cliente?.comuna||''}`,
     `Ciudad: ${order.cliente?.ciudad||''}`,
+    `Correo: ${clientContact.email}`,
+    `Teléfono: ${clientContact.phone}`,
     '',
     'DETALLE DE PRODUCTOS',
     sep,
@@ -4176,6 +4192,7 @@ function buildDocumentHtml(order, opts={}) {
   const items = order.items || [];
   const totals = docTotals(items);
   const vendorContact = vendorContactText(order);
+  const clientContact = documentClientContact(order);
   const testNoticeHtml = order.isTestClient ? '<div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:bold;color:#b45309;background:#fff7ed;border:1px solid #fed7aa;padding:8px 10px;margin:0 0 12px 0;text-align:center;">CLIENTE DE PRUEBA - No usar como documento real</div>' : '';
   const reviewNoticeHtml = opts.central ? clientContactReviewHtml(order.clientContactReview) : '';
   const rowStyle = 'padding:8px 6px;border-right:1px solid #d9deea;border-bottom:1px solid #d9deea;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#111827;vertical-align:top;line-height:1.25;';
@@ -4266,12 +4283,14 @@ function buildDocumentHtml(order, opts={}) {
                   <td width="62%" style="width:62%;padding:10px;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.45;color:#111827;border-right:1px solid #d9deea;">
                     <strong style="color:#061a53;">Cliente:</strong> ${escEmailHtml(order.cliente?.nombre||'')}<br>
                     <strong style="color:#061a53;">RUT:</strong> ${escEmailHtml(order.cliente?.rut||'')}<br>
-                    <strong style="color:#061a53;">Dirección:</strong> ${escEmailHtml(order.cliente?.direccion||'')}
+                    <strong style="color:#061a53;">Dirección:</strong> ${escEmailHtml(order.cliente?.direccion||'')}<br>
+                    <strong style="color:#061a53;">Correo:</strong> ${escEmailHtml(clientContact.email)}
                   </td>
                   <td width="38%" style="width:38%;padding:10px;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.45;color:#111827;">
                     <strong style="color:#061a53;">Ciudad / Comuna:</strong> ${escEmailHtml([order.cliente?.ciudad, order.cliente?.comuna].filter(Boolean).join(' / '))}<br>
                     <strong style="color:#061a53;">Fecha:</strong> ${escEmailHtml(order.fecha||'')}<br>
-                    <strong style="color:#061a53;">Validez:</strong> ${escEmailHtml(order.validUntil||validUntilText(new Date(), order.validityDays))}
+                    <strong style="color:#061a53;">Validez:</strong> ${escEmailHtml(order.validUntil||validUntilText(new Date(), order.validityDays))}<br>
+                    <strong style="color:#061a53;">Teléfono:</strong> ${escEmailHtml(clientContact.phone)}
                   </td>
                 </tr>
               </table>
@@ -4470,15 +4489,18 @@ async function buildOrderPdfRecord(order) {
     }
     yy += order.isTestClient ? 12 : 7;
 
-    const clientBoxH = 23;
+    const clientContact = documentClientContact(order);
+    const clientBoxH = 29;
     pdf.setDrawColor(...navy); pdf.setLineWidth(.35); pdfRoundedRect(pdf, margin, yy, contentW, clientBoxH, 2, 'S');
     const leftX = margin + 4, rightX = margin + 105, clientY = yy + 6.2;
     pdfLabelValueLine(pdf, 'Cliente:', order.cliente?.nombre || '', leftX, clientY, 96);
     pdfLabelValueLine(pdf, 'RUT:', order.cliente?.rut || '', leftX, clientY+6, 96);
     pdfLabelValueLine(pdf, 'Direccion:', order.cliente?.direccion || '', leftX, clientY+12, 96);
+    pdfLabelValueLine(pdf, 'Correo:', clientContact.email, leftX, clientY+18, 96);
     pdfLabelValueLine(pdf, 'Ciudad / Comuna:', [order.cliente?.ciudad, order.cliente?.comuna].filter(Boolean).join(' / '), rightX, clientY, 82);
     pdfLabelValueLine(pdf, 'Fecha:', pdfDateOnly(order.fecha), rightX, clientY+6, 82);
     pdfLabelValueLine(pdf, 'Validez:', order.validUntil || validUntilText(new Date(), order.validityDays), rightX, clientY+12, 82);
+    pdfLabelValueLine(pdf, 'Teléfono:', clientContact.phone, rightX, clientY+18, 82);
     const vendorContact = vendorContactText(order);
     if (vendorContact) {
       const vendorY = yy + clientBoxH + 4.5;
@@ -5277,6 +5299,8 @@ async function sendPedido(docType='cotizacion', sendMode='central', confirmedMul
   const now = new Date();
   const fecha=now.toLocaleString('es-CL');
   const businessHoursCode=getStoredClientBusinessHours(selectedClient);
+  const documentClientEmail=clientEmail || getStoredClientEmail(selectedClient);
+  const documentClientPhone=clientPhone || getStoredClientPhone(selectedClient);
   const obs=observationWithBusinessHours(currentCartObs(), businessHoursCode);
   const reserved = await nextDocumentNumber(docType);
   hideLoading();
@@ -5291,6 +5315,10 @@ async function sendPedido(docType='cotizacion', sendMode='central', confirmedMul
     vendedorEmail: vendorEmail,
     vendedorPhone: vendorPhone,
     cliente:{...selectedClient},
+    clientContact:{
+      email:documentClientEmail,
+      phone:documentClientPhone
+    },
     isTestClient:isTestClient(selectedClient),
     items:[...cart.map(x=>({...x}))],
     neto:totals.gross,
@@ -6496,6 +6524,35 @@ function applyProductVisibilityRules(list=[], log={}, rawRules=null) {
 
 async function productSourceList() {
   const sourceInfo = await getListCacheInfo(FITFLOW_PRODUCT_SOURCE_CACHE_KEY);
+  const expectedCount = Number((LS.get('product_import_log') || {}).visibilityRules?.inputCount || 0);
+  if (Array.isArray(sourceInfo.list) && sourceInfo.list.length && (!expectedCount || sourceInfo.list.length >= expectedCount)) {
+    return sourceInfo.list;
+  }
+  if (window._fbDB && window._fbSDK) {
+    try {
+      const {getDoc, doc} = window._fbSDK;
+      const metaSnap = await getDoc(doc(window._fbDB,'config','products_meta'));
+      const meta = metaSnap.exists() ? metaSnap.data() : null;
+      if (meta?.chunks && Number(meta.count || 0) > Number(sourceInfo.count || 0)) {
+        setLoadingText('Recuperando catálogo completo desde Firebase...');
+        const remoteProducts = await fetchFirebaseChunks({
+          db:window._fbDB,
+          getDoc,
+          doc,
+          collectionName:'products_chunks',
+          total:meta.chunks,
+          version:meta.version,
+          label:'catálogo completo'
+        });
+        if (remoteProducts?.length) {
+          await setListCache(FITFLOW_PRODUCT_SOURCE_CACHE_KEY, remoteProducts, meta.version || `source-${Date.now()}`);
+          return remoteProducts;
+        }
+      }
+    } catch(e) {
+      console.warn('No se pudo recuperar la fuente completa del catálogo:', e?.message || e);
+    }
+  }
   if (Array.isArray(sourceInfo.list) && sourceInfo.list.length) return sourceInfo.list;
   return Array.isArray(prods) ? prods : [];
 }
