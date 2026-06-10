@@ -5706,13 +5706,11 @@ function openResendOrderModal(id) {
   const vendorEmail=normalizeEmail(o.emailRecipients?.vendedor || o.vendedorEmail || '');
   const clientEmail=normalizeEmail(o.emailRecipients?.cliente || clientContact.email || '');
   const clientCcEmail=normalizeEmail(o.emailRecipients?.copia || '');
-  const clientPhone=normalizePhone(o.emailRecipients?.telefono || clientContact.phone || '');
   const cfg=DOC_TYPES[o.docType] || DOC_TYPES.cotizacion;
   const options = [
     resendOptionRow('resend-vendor', 'Copia al vendedor', vendorEmail),
     resendOptionRow('resend-client-email', 'Enviar también al cliente', clientEmail),
-    resendOptionRow('resend-client-cc', 'Copia adicional del cliente', clientCcEmail),
-    resendOptionRow('resend-client-phone', 'Enviar también por WhatsApp', formatChilePhone(clientPhone))
+    resendOptionRow('resend-client-cc', 'Copia adicional del cliente', clientCcEmail)
   ].filter(Boolean).join('');
   openModal(`<div class="modal-title">Reenviar ${escEmailHtml(cfg.label)} ${escEmailHtml(o.documentNumber||'')}</div>
     <div class="modal-sub">Revisa los destinatarios antes de confirmar. Por seguridad, las opciones adicionales comienzan desmarcadas.</div>
@@ -5748,7 +5746,7 @@ async function resendOrder(id) {
     vendorEmail:selected('resend-vendor') ? normalizeEmail(o.emailRecipients?.vendedor || o.vendedorEmail || '') : '',
     clientEmail:selected('resend-client-email') ? normalizeEmail(o.emailRecipients?.cliente || clientContact.email || '') : '',
     clientCcEmail:selected('resend-client-cc') ? normalizeEmail(o.emailRecipients?.copia || '') : '',
-    clientPhone:selected('resend-client-phone') ? normalizePhone(o.emailRecipients?.telefono || clientContact.phone || '') : ''
+    clientPhone:''
   };
   closeModal();
   showLoading('Reenviando correo...');
