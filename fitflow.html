@@ -2270,17 +2270,19 @@ async function doGoogleLogin() {
     showLoading('Validando usuario...');
     const result = await window._fbSDK.signInWithPopup(window._fbAuth, window._fbGoogleProvider);
     const email = normalizeEmail(result?.user?.email || '');
-    hideLoading();
     if (!email) {
+      hideLoading();
       toast('Google no entregó un correo válido','err');
       return;
     }
-    const authorized = findAuthorizedVendorByEmail(email);
+    const authorized = await fetchAuthorizedVendorByEmail(email);
     if (!authorized) {
       await window._fbSDK.signOut?.(window._fbAuth).catch(()=>{});
+      hideLoading();
       toast('Correo Google no autorizado en Admin','err');
       return;
     }
+    hideLoading();
     enterWithVendor(authorized.vendor, authorized.idx, {provider:'google', email, photoURL:result?.user?.photoURL || ''});
   } catch(e) {
     hideLoading();
@@ -2332,8 +2334,6 @@ async function doEmailPasswordLogin() {
   const pass = document.getElementById('password')?.value||'';
   if (!isValidEmail(email)) { toast('Ingresa un correo válido','err'); return; }
   if (!pass) { toast('Ingresa la contraseña','err'); return; }
-  const authorized = findAuthorizedVendorByEmail(email);
-  if (!authorized) { toast('Correo no autorizado en FitFlow','err'); return; }
   if (!window._fbAuth || !window._fbSDK?.signInWithEmailAndPassword) {
     toast('Acceso con correo no disponible todavía','err');
     return;
@@ -2343,13 +2343,14 @@ async function doEmailPasswordLogin() {
     showLoading('Validando usuario...');
     const result = await window._fbSDK.signInWithEmailAndPassword(window._fbAuth, email, pass);
     const authEmail = normalizeEmail(result?.user?.email || email);
-    hideLoading();
-    const confirmed = findAuthorizedVendorByEmail(authEmail);
+    const confirmed = await fetchAuthorizedVendorByEmail(authEmail);
     if (!confirmed) {
       await window._fbSDK.signOut?.(window._fbAuth).catch(()=>{});
+      hideLoading();
       toast('Correo no autorizado en FitFlow','err');
       return;
     }
+    hideLoading();
     enterWithVendor(confirmed.vendor, confirmed.idx, {provider:'email', email:authEmail});
   } catch(e) {
     hideLoading();
@@ -2360,12 +2361,13 @@ async function doEmailPasswordLogin() {
 async function sendPasswordReset() {
   const email = normalizeEmail(document.getElementById('email')?.value||'');
   if (!isValidEmail(email)) { toast('Ingresa un correo válido','err'); return; }
-  if (!findAuthorizedVendorByEmail(email)) { toast('Correo no autorizado en FitFlow','err'); return; }
   if (!window._fbAuth || !window._fbSDK?.sendPasswordResetEmail) {
     toast('Recuperación no disponible todavía','err');
     return;
   }
   try {
+    const authorized = await fetchAuthorizedVendorByEmail(email);
+    if (!authorized) { toast('Correo no autorizado en FitFlow','err'); return; }
     await window._fbSDK.sendPasswordResetEmail(window._fbAuth, email, {
       url: currentFitFlowAuthUrl(),
       handleCodeInApp: true
@@ -2387,8 +2389,9 @@ async function handleFirebaseAuthAction() {
   try {
     showLoading('Validando enlace...');
     const email = normalizeEmail(await window._fbSDK.verifyPasswordResetCode(window._fbAuth, oobCode));
+    const authorized = await fetchAuthorizedVendorByEmail(email);
     hideLoading();
-    if (!findAuthorizedVendorByEmail(email)) {
+    if (!authorized) {
       toast('Correo no autorizado en FitFlow','err');
       return;
     }
@@ -6657,21 +6660,38 @@ async function refreshVisibleProductsFromSource(opts={}) {
   return {source, products:prods, restored:!sourceIncomplete};
 }
 
+function isSafeLogoSource(data) {
+  const source = String(data || '').trim();
+  return /^data:image\/(?:png|jpe?g|webp|gif|svg\+xml);base64,/i.test(source)
+    || /^blob:/i.test(source)
+    || /^https?:\/\//i.test(source);
+}
 function applyLogo(kind, data) {
   if (arguments.length === 1) { data = kind; kind = 'login'; }
+  if (!isSafeLogoSource(data)) return false;
   const lp=document.getElementById('login-logo-placeholder'), hw=document.getElementById('hdr-logo-wrap');
-  if(kind === 'login' && lp) lp.innerHTML=`<img src="${data}" class="login-logo-img" alt="Logo inicio">`;
-  if(kind === 'header' && hw) hw.innerHTML=`<img src="${data}" class="hdr-logo-img" alt="Logo banner">`;
-}
-function clearLoginLogoPlaceholder() {
-  const lp=document.getElementById('login-logo-placeholder');
-  if (lp) lp.innerHTML='';
+  const target = kind === 'login' ? lp : kind === 'header' ? hw : null;
+  if (!target) return false;
+  const img = document.createElement('img');
+  img.src = String(data);
+  img.className = kind === 'login' ? 'login-logo-img' : 'hdr-logo-img';
+  img.alt = kind === 'login' ? 'Logo inicio' : 'Logo banner';
+  target.replaceChildren(img);
+  return true;
 }
 function applyStoredLogos(opts={}) {
   const loginLogo = opts.login === true ? LS.get('logo_login') : null;
   const headerLogo = LS.get('logo_header');
   if (loginLogo) applyLogo('login', loginLogo);
   if (headerLogo) applyLogo('header', headerLogo);
+}
+async function restoreOfficialLoginLogoFromCache() {
+  const localLogo = LS.get('logo_login');
+  if (localLogo && applyLogo('login', localLogo)) return true;
+  const cachedLogo = await getBigCache('logo_login');
+  if (!cachedLogo || !applyLogo('login', cachedLogo)) return false;
+  LS._setLocal('logo_login', cachedLogo);
+  return true;
 }
 async function loadLogoFromFirebase(kind) {
   const cfg = LOGO_TYPES[kind]; if (!cfg || !window._fbDB) return;
@@ -7821,8 +7841,8 @@ async function registerFitFlowOffline() {
 registerFitFlowOffline();
 loadState();
 buildLoginSelect();
-clearLoginLogoPlaceholder();
-applyStoredLogos({login:true});
+restoreOfficialLoginLogoFromCache();
+applyStoredLogos();
 updatePaymentConditionsUI();
 updateProductVisibilityRulesUI();
 updatePriceModeButtons();
