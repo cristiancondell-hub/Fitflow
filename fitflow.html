@@ -1503,7 +1503,7 @@ function retryOrderSync() {
   syncDeletedOrdersToFirebase(LS.get('deleted_orders')||[]);
 }
 
-const PDF_DESIGN_VERSION = 'commercial_compact_2026_06_10_client_contact';
+const PDF_DESIGN_VERSION = 'commercial_compact_2026_06_10_client_contact_test_watermark';
 function pdfNetworkTimeout(promise, ms, message) {
   let timer;
   const timeout = new Promise((_, reject) => {
@@ -4483,11 +4483,7 @@ async function buildOrderPdfRecord(order) {
     yy = 51;
     pdf.setFont('helvetica','bold'); pdf.setFontSize(13); pdf.setTextColor(...black);
     pdf.text(cfg.title, pageW/2, yy, {align:'center'});
-    if (order.isTestClient) {
-      pdf.setFontSize(8); pdf.setTextColor(180,83,9);
-      pdf.text('CLIENTE DE PRUEBA - No usar como documento real', pageW/2, yy+5, {align:'center'});
-    }
-    yy += order.isTestClient ? 12 : 7;
+    yy += 7;
 
     const clientContact = documentClientContact(order);
     const clientBoxH = 29;
@@ -4516,6 +4512,20 @@ async function buildOrderPdfRecord(order) {
   function drawFooter(pageNum) {
     pdf.setFont('helvetica','normal'); pdf.setFontSize(7.2); pdf.setTextColor(...muted);
     pdf.text(`Página ${pageNum} de ${totalPages}`, pageW-margin, footerY, {align:'right'});
+  }
+
+  function drawTestClientWatermark() {
+    if (!order.isTestClient) return;
+    const canUseOpacity = typeof pdf.GState === 'function' && typeof pdf.setGState === 'function';
+    if (canUseOpacity) pdf.setGState(new pdf.GState({opacity:0.13}));
+    pdf.setFont('helvetica','bold');
+    pdf.setFontSize(27);
+    if (canUseOpacity) pdf.setTextColor(180,83,9);
+    else pdf.setTextColor(242,220,205);
+    pdf.text('CLIENTE DE PRUEBA', pageW/2, 139, {align:'center', angle:32});
+    pdf.setFontSize(11);
+    pdf.text('NO USAR COMO DOCUMENTO REAL', pageW/2, 149, {align:'center', angle:32});
+    if (canUseOpacity) pdf.setGState(new pdf.GState({opacity:1}));
   }
 
   function drawTableHeader(headerY) {
@@ -4648,6 +4658,7 @@ async function buildOrderPdfRecord(order) {
         pdf.text('* Correlativo provisorio generado sin conexion.', margin, Math.min(pageBottom, finalBlockY+totalH+7));
       }
     }
+    drawTestClientWatermark();
     drawFooter(pageNum);
   });
 
@@ -5629,15 +5640,27 @@ function orderDetailItemHTML(item) {
 function showOrderDetail(id) {
   const o=visibleOrders(LS.get('orders')||[]).find(x=>x.id===id); if(!o) return;
   const docLabel = o.documentNumber ? `${o.documentTitle||DOC_TYPES[o.docType]?.label||'Documento'} ${o.documentNumber}` : '';
-  const sentLines = o.emailRecipients ? [
+  const originalRecipientLines = o.emailRecipients ? [
     centralEmails(o.emailRecipients.central).length ? `Central: ${centralEmailsText(o.emailRecipients.central)}` : '',
     o.emailRecipients.vendedor ? `Copia vendedor: ${o.emailRecipients.vendedor}` : '',
     o.emailRecipients.cliente ? `Cliente: ${o.emailRecipients.cliente}` : '',
     o.emailRecipients.copia ? `Copia cliente: ${o.emailRecipients.copia}` : '',
-    o.emailRecipients.telefono ? `WhatsApp cliente: ${o.emailRecipients.telefono}` : '',
+    o.emailRecipients.telefono ? `WhatsApp cliente: ${o.emailRecipients.telefono}` : ''
+  ].filter(Boolean).join('<br>') : '';
+  const resendRecipientLines = o.lastResendRecipients ? [
+    centralEmails(o.lastResendRecipients.central).length ? `Central: ${centralEmailsText(o.lastResendRecipients.central)}` : '',
+    o.lastResendRecipients.vendedor ? `Copia vendedor: ${o.lastResendRecipients.vendedor}` : '',
+    o.lastResendRecipients.cliente ? `Cliente: ${o.lastResendRecipients.cliente}` : '',
+    o.lastResendRecipients.copia ? `Copia cliente: ${o.lastResendRecipients.copia}` : '',
+    o.lastResendRecipients.telefono ? `WhatsApp cliente: ${o.lastResendRecipients.telefono}` : '',
+    o.lastResendRecipients.sentAt ? `Fecha: ${formatProductUpdatedAt(o.lastResendRecipients.sentAt)}` : ''
+  ].filter(Boolean).join('<br>') : '';
+  const sentLines = [
+    originalRecipientLines ? `<strong>Emisión original</strong><br>${originalRecipientLines}` : '',
+    resendRecipientLines ? `<strong>Último reenvío</strong><br>${resendRecipientLines}` : '',
     o.emailStatusUpdatedAt ? `Último estado: ${formatProductUpdatedAt(o.emailStatusUpdatedAt)}` : '',
     o.emailError ? `Error: ${o.emailError}` : ''
-  ].filter(Boolean).join('<br>') : '';
+  ].filter(Boolean).join('<br><br>');
   const detailItems = hydrateItemsUnits(o.items||[]);
   const lines=detailItems.map(orderDetailItemHTML).join('');
   openModal(`<div class="detail-modal-body">
@@ -5660,15 +5683,53 @@ function showOrderDetail(id) {
     ${orderState(o)==='proceso'?`<button class="btn-confirm-green" onclick="closeModal();resumeOrder(${o.id})">Retomar</button>`:''}
     ${orderState(o)==='proceso'?`<button class="btn-confirm-red" onclick="closeModal();openDeleteHistoryOrderModal(${o.id})">Eliminar</button>`:''}
     ${orderState(o)==='enviado'?`<button class="btn-confirm" onclick="closeModal();openOrderPdf(${o.id})">PDF</button>`:''}
-    ${orderState(o)==='enviado'?`<button class="btn-confirm-green" onclick="closeModal();resendOrder(${o.id})">Reenviar</button>`:''}
+    ${orderState(o)==='enviado'?`<button class="btn-confirm-green" onclick="closeModal();openResendOrderModal(${o.id})">Reenviar</button>`:''}
     ${orderState(o)==='enviado'?`<button class="btn-confirm" onclick="closeModal();copyOrderAsNew(${o.id})">Crear nuevo desde este</button>`:''}
     <button class="btn-cancel" onclick="closeModal()">Cerrar</button>
   </div>`, {orderDetailId:id, modalClass:'detail-modal'});
 }
 
+function resendOptionRow(id, label, value) {
+  if (!value) return '';
+  return `<label style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;">
+    <input type="checkbox" id="${id}" style="width:18px;height:18px;margin-top:1px;accent-color:var(--green);flex:0 0 auto;">
+    <span style="min-width:0;"><strong style="display:block;color:var(--text);font-size:13px;">${escEmailHtml(label)}</strong><span style="display:block;color:var(--text2);font-size:12px;overflow-wrap:anywhere;margin-top:2px;">${escEmailHtml(value)}</span></span>
+  </label>`;
+}
+
+function openResendOrderModal(id) {
+  const o=(LS.get('orders')||[]).find(x=>x.id===id);
+  if (!o) { toast('El documento ya no está disponible','warn'); return; }
+  const adminEmails=centralEmails();
+  if (!adminEmails.length) { toast('Configura al menos un correo central de envío en Admin','err'); return; }
+  const clientContact=documentClientContact(o);
+  const vendorEmail=normalizeEmail(o.emailRecipients?.vendedor || o.vendedorEmail || '');
+  const clientEmail=normalizeEmail(o.emailRecipients?.cliente || clientContact.email || '');
+  const clientCcEmail=normalizeEmail(o.emailRecipients?.copia || '');
+  const clientPhone=normalizePhone(o.emailRecipients?.telefono || clientContact.phone || '');
+  const cfg=DOC_TYPES[o.docType] || DOC_TYPES.cotizacion;
+  const options = [
+    resendOptionRow('resend-vendor', 'Copia al vendedor', vendorEmail),
+    resendOptionRow('resend-client-email', 'Enviar también al cliente', clientEmail),
+    resendOptionRow('resend-client-cc', 'Copia adicional del cliente', clientCcEmail),
+    resendOptionRow('resend-client-phone', 'Enviar también por WhatsApp', formatChilePhone(clientPhone))
+  ].filter(Boolean).join('');
+  openModal(`<div class="modal-title">Reenviar ${escEmailHtml(cfg.label)} ${escEmailHtml(o.documentNumber||'')}</div>
+    <div class="modal-sub">Revisa los destinatarios antes de confirmar. Por seguridad, las opciones adicionales comienzan desmarcadas.</div>
+    <div style="border:1px solid var(--border);border-radius:var(--rs);padding:10px 12px;background:var(--bg);margin-bottom:10px;">
+      <div style="font-size:12px;font-weight:800;color:var(--text);">Central vigente · obligatorio</div>
+      <div style="font-size:12px;color:var(--text2);overflow-wrap:anywhere;margin-top:3px;">${escEmailHtml(centralEmailsText(adminEmails))}</div>
+    </div>
+    ${options || '<div class="modal-sub" style="margin:8px 0;">Este documento no tiene otros destinatarios registrados.</div>'}
+    <div class="modal-btns" style="margin-top:14px;">
+      <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+      <button class="btn-confirm-green" onclick="resendOrder(${id})">Confirmar reenvío</button>
+    </div>`, {resendOrderId:id});
+}
+
 async function resendOrder(id) {
   const o=(LS.get('orders')||[]).find(x=>x.id===id); if(!o) return;
-  const adminEmails=centralEmails(o.emailRecipients?.central || LS.get('email'));
+  const adminEmails=centralEmails();
   if (!adminEmails.length) { toast('Configura al menos un correo central de envío en Admin','err'); return; }
   if (!o.documentNumber || !o.docType) {
     toast('Este registro antiguo no tiene tipo de documento','warn');
@@ -5679,8 +5740,18 @@ async function resendOrder(id) {
     return;
   }
   const cfg = DOC_TYPES[o.docType] || DOC_TYPES.cotizacion;
+  const clientContact=documentClientContact(o);
+  const selected = checkboxId => !!document.getElementById(checkboxId)?.checked;
+  const recipients = {
+    adminEmails,
+    adminEmail:adminEmails[0],
+    vendorEmail:selected('resend-vendor') ? normalizeEmail(o.emailRecipients?.vendedor || o.vendedorEmail || '') : '',
+    clientEmail:selected('resend-client-email') ? normalizeEmail(o.emailRecipients?.cliente || clientContact.email || '') : '',
+    clientCcEmail:selected('resend-client-cc') ? normalizeEmail(o.emailRecipients?.copia || '') : '',
+    clientPhone:selected('resend-client-phone') ? normalizePhone(o.emailRecipients?.telefono || clientContact.phone || '') : ''
+  };
+  closeModal();
   showLoading('Reenviando correo...');
-  const recipients = {adminEmails, adminEmail:adminEmails[0], vendorEmail:o.emailRecipients?.vendedor||'', clientEmail:o.emailRecipients?.cliente||'', clientCcEmail:o.emailRecipients?.copia||'', clientPhone:o.emailRecipients?.telefono||''};
   try {
     if (o.docType === 'nota_venta' && !o.erpFlatFile?.content) {
       const flat = buildErpFlatFileRecord(o);
@@ -5696,7 +5767,17 @@ async function resendOrder(id) {
     o.emailStatus='enviado';
     o.emailStatusUpdatedAt=new Date().toISOString();
     o.emailError='';
-    o.emailSends=result.sends||o.emailSends||[];
+    const resendAt=new Date().toISOString();
+    const resendEntries=(result.sends||[]).map(send=>({...send, trigger:'resend', sentAt:resendAt}));
+    o.emailSends=[...(o.emailSends||[]), ...resendEntries];
+    o.lastResendRecipients={
+      central:adminEmails,
+      vendedor:recipients.vendorEmail,
+      cliente:recipients.clientEmail,
+      copia:recipients.clientCcEmail,
+      telefono:recipients.clientPhone,
+      sentAt:resendAt
+    };
     o.updatedAtMs=Date.now();
     const orders=LS.get('orders')||[];
     const idx=orders.findIndex(x=>x.id===id);
