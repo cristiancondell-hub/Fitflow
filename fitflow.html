@@ -1319,6 +1319,28 @@ function visibleOrders(orders=[]) {
   return (Array.isArray(orders) ? orders : []).filter(o => o && !isOrderDeleted(o));
 }
 
+function currentDocumentOwnerEmail() {
+  return normalizeEmail(currentUser?.authEmail || currentUser?.email || '');
+}
+
+function documentBelongsToCurrentUser(record={}) {
+  if (isSupraAdmin()) return true;
+  const ownerEmail = normalizeEmail(record?.vendedorEmail || '');
+  return !!ownerEmail && ownerEmail === currentDocumentOwnerEmail();
+}
+
+function restrictLocalDocumentCacheToCurrentUser() {
+  if (!currentUser || isSupraAdmin()) return;
+  const ownOrders = (LS.get('orders') || []).filter(documentBelongsToCurrentUser);
+  const ownDeleted = (LS.get('deleted_orders') || []).filter(documentBelongsToCurrentUser);
+  LS._setLocal('orders', ownOrders);
+  LS._setLocal('deleted_orders', ownDeleted);
+
+  const ownKeys = new Set(ownOrders.map(orderKey));
+  const ownPending = pendingOrderSyncs().filter(item => ownKeys.has(item.key));
+  LS._setLocal('pending_order_syncs', ownPending);
+}
+
 function mergeDeletedOrderTombstones(local=[], remote=[]) {
   const map = new Map();
   [...(Array.isArray(local)?local:[]), ...(Array.isArray(remote)?remote:[])].forEach(t => {
@@ -1344,6 +1366,7 @@ function deletedOrderTombstoneSignature(tombstone) {
     estado:tombstone?.estado || '',
     cliente:tombstone?.cliente || '',
     vendedor:tombstone?.vendedor || '',
+    vendedorEmail:tombstone?.vendedorEmail || '',
     deletedBy:tombstone?.deletedBy || '',
     deletedAt:tombstone?.deletedAt || '',
     deletedAtMs:Number(tombstone?.deletedAtMs || 0)
@@ -1383,6 +1406,7 @@ function saveDeletedOrderTombstone(order) {
     estado:orderState(order),
     cliente:order?.cliente?.nombre || '',
     vendedor:order?.vendedor || currentUser?.name || '',
+    vendedorEmail:normalizeEmail(order?.vendedorEmail || currentDocumentOwnerEmail()),
     deletedBy:currentUser?.name || '',
     deletedAt:new Date().toISOString(),
     deletedAtMs:Date.now()
@@ -1543,6 +1567,7 @@ async function syncPdfToFirebase(pdfRecord) {
     const chunks = Math.ceil(pdfRecord.base64.length / chunkSize);
     const meta = {
       docId:pdfRecord.docId,
+      vendedorEmail:normalizeEmail(pdfRecord.vendedorEmail || currentDocumentOwnerEmail()),
       fileName:pdfRecord.fileName,
       mimeType:pdfRecord.mimeType,
       generatedAt:pdfRecord.generatedAt,
@@ -1562,6 +1587,7 @@ async function syncPdfToFirebase(pdfRecord) {
       await pdfNetworkTimeout(
         setDoc(doc(db,'order_pdf_chunks',`${pdfRecord.docId}_${String(i).padStart(4,'0')}`), {
           docId:pdfRecord.docId,
+          vendedorEmail:normalizeEmail(pdfRecord.vendedorEmail || currentDocumentOwnerEmail()),
           index:i,
           chunks,
           value:pdfRecord.base64.slice(i*chunkSize, (i+1)*chunkSize)
@@ -1606,7 +1632,7 @@ async function loadFromFirebase(opts={}) {
   const blocking = opts.blocking !== false;
   if (blocking) showLoading('Verificando actualizaciones...');
   try {
-    const { getDoc, doc, getDocs, collection } = window._fbSDK;
+    const { getDoc, doc, getDocs, collection, query, where } = window._fbSDK;
     const db = window._fbDB;
     const [vSnap, eSnap, paySnap, companySnap, visibilitySnap, oSnap, cMetaSnap, pMetaSnap] = await Promise.all([
       getDoc(doc(db,'config','vendors')),
@@ -1649,7 +1675,10 @@ async function loadFromFirebase(opts={}) {
     const localOrders = visibleOrders(LS.get('orders') || []);
     let remoteDeleted = [];
     try {
-      const deletedSnap = await getDocs(collection(db,'orders_deleted'));
+      const deletedSource = isSupraAdmin()
+        ? collection(db,'orders_deleted')
+        : query(collection(db,'orders_deleted'), where('vendedorEmail','==',currentDocumentOwnerEmail()));
+      const deletedSnap = await getDocs(deletedSource);
       remoteDeleted = deletedSnap.docs.map(d => d.data()).filter(Boolean);
     } catch(e) {}
     if (remoteDeleted.length) {
@@ -1662,12 +1691,19 @@ async function loadFromFirebase(opts={}) {
     }
     let remoteOrders = [];
     try {
-      const ordersSnap = await getDocs(collection(db,'orders'));
+      const ordersSource = isSupraAdmin()
+        ? collection(db,'orders')
+        : query(collection(db,'orders'), where('vendedorEmail','==',currentDocumentOwnerEmail()));
+      const ordersSnap = await getDocs(ordersSource);
       remoteOrders = ordersSnap.docs.map(d => d.data()).filter(Boolean);
     } catch(e) {}
     if (oSnap.exists()) {
-      remoteOrders = remoteOrders.concat(oSnap.data().value || []);
+      const legacyOrders = Array.isArray(oSnap.data().value) ? oSnap.data().value : [];
+      remoteOrders = remoteOrders.concat(
+        isSupraAdmin() ? legacyOrders : legacyOrders.filter(documentBelongsToCurrentUser)
+      );
     }
+    if (!isSupraAdmin()) remoteOrders = remoteOrders.filter(documentBelongsToCurrentUser);
     remoteOrders = visibleOrders(remoteOrders);
     if (remoteOrders.length || localOrders.length) {
       const mergedOrders = mergeOrders(localOrders, remoteOrders);
@@ -2146,6 +2182,7 @@ function setHeaderUserAvatar(name, photoURL='') {
 function enterWithVendor(v, idx, authInfo={}) {
   v = normalizeVendor(v, idx);
   currentUser = {...v, idx, authProvider:authInfo.provider || 'email', authEmail:authInfo.email || normalizeEmail(v.email||''), authPhotoURL:authInfo.photoURL || ''};
+  restrictLocalDocumentCacheToCurrentUser();
   saveFitFlowSession(v, idx, authInfo);
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='flex';
@@ -4666,6 +4703,7 @@ async function buildOrderPdfRecord(order) {
   const base64 = pdf.output('datauristring').split(',')[1];
   return {
     docId:pdfDocId(order),
+    vendedorEmail:normalizeEmail(order?.vendedorEmail || currentDocumentOwnerEmail()),
     fileName:pdfFileName(order),
     mimeType:'application/pdf',
     generatedAt:new Date().toISOString(),
@@ -5491,7 +5529,7 @@ function renderHistorial() {
   // Filtro por usuario: solo Supra Administrador ve todo. Admin normal opera como vendedor.
   let orders = isSupraAdmin()
     ? all
-    : all.filter(o => !o.vendedor || o.vendedor === currentUser?.name);
+    : all.filter(documentBelongsToCurrentUser);
 
   // Filtro por estado/tipo de documento
   orders = orders.filter(o => orderMatchesHistFilter(o, histActiveFilter));
@@ -7920,7 +7958,7 @@ updatePriceModeButtons();
 <!-- Firebase SDK -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
-  import { getFirestore, doc, getDoc, setDoc, deleteDoc, getDocs, collection, runTransaction } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
+  import { getFirestore, doc, getDoc, setDoc, deleteDoc, getDocs, collection, query, where, runTransaction } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
   import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, sendPasswordResetEmail, verifyPasswordResetCode, confirmPasswordReset, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js";
 
   const app = initializeApp({
@@ -7941,7 +7979,7 @@ updatePriceModeButtons();
   window._fbDB  = db;
   window._fbAuth = auth;
   window._fbGoogleProvider = googleProvider;
-  window._fbSDK = { getDoc, setDoc, deleteDoc, doc, getDocs, collection, runTransaction, signInWithPopup, signInWithEmailAndPassword, sendPasswordResetEmail, verifyPasswordResetCode, confirmPasswordReset, signOut };
+  window._fbSDK = { getDoc, setDoc, deleteDoc, doc, getDocs, collection, query, where, runTransaction, signInWithPopup, signInWithEmailAndPassword, sendPasswordResetEmail, verifyPasswordResetCode, confirmPasswordReset, signOut };
 
   // Antes del login solo se trae configuracion liviana: usuarios, email y logo.
   if (typeof preloadLoginConfig === 'function') preloadLoginConfig();
