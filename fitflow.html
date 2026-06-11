@@ -7666,6 +7666,8 @@ function renderVendorList() {
   </div>`).join('');
 }
 
+let pendingVendorEmailMigration = null;
+
 async function syncFitFlowAccessDirectory(vendors=[], previousVendors=[]) {
   if (!window._fbDB || !window._fbSDK?.setDoc) throw new Error('Firebase no disponible');
   const { setDoc, doc } = window._fbSDK;
@@ -7707,6 +7709,204 @@ async function syncFitFlowAccessDirectory(vendors=[], previousVendors=[]) {
   await Promise.all(writes);
 }
 
+async function previewVendorEmailMigration(vendorIndex, newEmailInput='') {
+  if (!requireSupraAccess()) return;
+  const vendors=(LS.get('vendors')||[]).map(normalizeVendor);
+  const vendor=vendors[Number(vendorIndex)];
+  if (!vendor) return;
+
+  const oldEmail=normalizeEmail(vendor.email||'');
+  const newEmail=normalizeEmail(newEmailInput || document.getElementById('migrate-vendor-email')?.value || '');
+  const signedEmail=normalizeEmail(window._fbAuth?.currentUser?.email||'');
+  if (!oldEmail) { toast('El usuario no tiene un correo anterior válido','err'); return; }
+  if (!isValidEmail(newEmail)) { toast('Ingresa un correo nuevo válido','err'); return; }
+  if (newEmail === oldEmail) { toast('El correo nuevo es igual al actual','warn'); return; }
+  if (oldEmail === signedEmail) { toast('No puedes cambiar el correo de la sesión que está ejecutando la migración','err','long'); return; }
+  if (vendors.some((item,index)=>index !== Number(vendorIndex) && normalizeEmail(item.email) === newEmail)) {
+    toast('El correo nuevo ya está asignado a otro usuario','err');
+    return;
+  }
+
+  closeModal();
+  showLoading('Revisando historial del usuario...');
+  try {
+    const { collection, doc, getDoc, getDocs, query, where } = window._fbSDK;
+    const db=window._fbDB;
+    const [newUserSnap, orderSnap, deletedSnap] = await Promise.all([
+      getDoc(doc(db,'fitflow_users',newEmail)),
+      getDocs(query(collection(db,'orders'),where('vendedorEmail','==',oldEmail))),
+      getDocs(query(collection(db,'orders_deleted'),where('vendedorEmail','==',oldEmail)))
+    ]);
+    if (newUserSnap.exists() && newUserSnap.data()?.active === true) {
+      throw new Error('El correo nuevo ya tiene un acceso activo en FitFlow');
+    }
+
+    const orders=orderSnap.docs.map(item=>({id:item.id,data:item.data()}));
+    const deleted=deletedSnap.docs.map(item=>({id:item.id,data:item.data()}));
+    let pdfCount=0, chunkCount=0;
+    const pdfs=[];
+    const chunks=[];
+    for (const order of orders) {
+      const pdfSnap=await getDoc(doc(db,'order_pdfs',order.id));
+      if (!pdfSnap.exists()) continue;
+      const pdf=pdfSnap.data();
+      pdfs.push({id:order.id,data:pdf});
+      pdfCount++;
+      const total=Number(pdf.chunks||0);
+      for (let index=0; index<total; index++) {
+        const chunkId=`${order.id}_${String(index).padStart(4,'0')}`;
+        const chunkSnap=await getDoc(doc(db,'order_pdf_chunks',chunkId));
+        if (chunkSnap.exists()) {
+          chunks.push({id:chunkId,data:chunkSnap.data()});
+          chunkCount++;
+        }
+      }
+    }
+
+    const totalWrites=orders.length+deleted.length+pdfs.length+chunks.length+4;
+    if (totalWrites > 450) throw new Error(`La migración requiere ${totalWrites} escrituras; supera el límite seguro de 450`);
+
+    pendingVendorEmailMigration={
+      vendorIndex:Number(vendorIndex),
+      vendor:{...vendor},
+      oldEmail,
+      newEmail,
+      orders,
+      deleted,
+      pdfs,
+      chunks,
+      totalWrites
+    };
+    hideLoading();
+    openModal(`<div class="modal-title">Confirmar cambio de correo</div>
+      <div class="modal-sub">La operación es atómica: si alguna actualización falla, no se aplicará ningún cambio.</div>
+      <div style="display:grid;gap:8px;margin:14px 0;padding:12px;border:1px solid var(--line);border-radius:var(--rs);font-size:13px;">
+        <div><b>Usuario:</b> ${escEmailHtml(vendor.name)}</div>
+        <div><b>Correo actual:</b> ${escEmailHtml(oldEmail)}</div>
+        <div><b>Correo nuevo:</b> ${escEmailHtml(newEmail)}</div>
+        <div><b>Pedidos:</b> ${orders.length}</div>
+        <div><b>Eliminaciones:</b> ${deleted.length}</div>
+        <div><b>PDF:</b> ${pdfCount} · <b>Fragmentos:</b> ${chunkCount}</div>
+      </div>
+      <label class="modal-lbl">Escribe el correo nuevo para confirmar</label>
+      <input class="modal-inp" id="confirm-vendor-email-migration" type="email" autocomplete="off" placeholder="${escEmailHtml(newEmail)}">
+      <div class="modal-btns">
+        <button class="btn-cancel" onclick="pendingVendorEmailMigration=null;closeModal()">Cancelar</button>
+        <button class="btn-danger" onclick="executeVendorEmailMigration()">Migrar correo e historial</button>
+      </div>`);
+  } catch(e) {
+    hideLoading();
+    pendingVendorEmailMigration=null;
+    toast(e?.message || 'No se pudo preparar la migración','err','long');
+  }
+}
+
+function openVendorEmailMigration(vendorIndex) {
+  if (!requireSupraAccess()) return;
+  const vendors=(LS.get('vendors')||[]).map(normalizeVendor);
+  const vendor=vendors[Number(vendorIndex)];
+  if (!vendor) return;
+  openModal(`<div class="modal-title">Cambiar correo de acceso</div>
+    <div class="modal-sub">Migrará el historial y desactivará el acceso anterior solo cuando toda la operación termine correctamente.</div>
+    <label class="modal-lbl" style="margin-top:12px;">Correo actual</label>
+    <input class="modal-inp" value="${escEmailHtml(vendor.email||'')}" disabled>
+    <label class="modal-lbl">Correo nuevo</label>
+    <input class="modal-inp" id="migrate-vendor-email" type="email" autocomplete="email" placeholder="nuevo@empresa.cl">
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+      <button class="btn-confirm" onclick="previewVendorEmailMigration(${Number(vendorIndex)})">Revisar migración</button>
+    </div>`);
+}
+
+async function executeVendorEmailMigration() {
+  if (!requireSupraAccess() || !pendingVendorEmailMigration) return;
+  const migration=pendingVendorEmailMigration;
+  const confirmation=normalizeEmail(document.getElementById('confirm-vendor-email-migration')?.value||'');
+  if (confirmation !== migration.newEmail) {
+    toast('El correo de confirmación no coincide','err');
+    return;
+  }
+
+  showLoading('Migrando correo e historial...');
+  try {
+    const { doc, writeBatch }=window._fbSDK;
+    const db=window._fbDB;
+    const batch=writeBatch(db);
+    const now=new Date().toISOString();
+    const actor=normalizeEmail(window._fbAuth?.currentUser?.email||'');
+    const vendors=(LS.get('vendors')||[]).map(normalizeVendor).map(item=>({...item}));
+    const currentVendor=vendors[migration.vendorIndex];
+    if (!currentVendor || normalizeEmail(currentVendor.email) !== migration.oldEmail) {
+      throw new Error('El usuario cambió desde la vista previa. Vuelve a iniciar la migración.');
+    }
+    currentVendor.email=migration.newEmail;
+
+    migration.orders.forEach(item=>batch.set(doc(db,'orders',item.id),{
+      vendedorEmail:migration.newEmail,
+      accessEmailMigratedFrom:migration.oldEmail,
+      accessEmailMigratedAt:now,
+      accessEmailMigratedBy:actor
+    },{merge:true}));
+    migration.deleted.forEach(item=>batch.set(doc(db,'orders_deleted',item.id),{
+      vendedorEmail:migration.newEmail,
+      accessEmailMigratedFrom:migration.oldEmail,
+      accessEmailMigratedAt:now,
+      accessEmailMigratedBy:actor
+    },{merge:true}));
+    migration.pdfs.forEach(item=>batch.set(doc(db,'order_pdfs',item.id),{
+      vendedorEmail:migration.newEmail,
+      accessEmailMigratedAt:now
+    },{merge:true}));
+    migration.chunks.forEach(item=>batch.set(doc(db,'order_pdf_chunks',item.id),{
+      vendedorEmail:migration.newEmail,
+      accessEmailMigratedAt:now
+    },{merge:true}));
+
+    batch.set(doc(db,'fitflow_users',migration.newEmail),{
+      email:migration.newEmail,
+      name:currentVendor.name||'',
+      role:normalizeVendorRole(currentVendor,migration.vendorIndex),
+      active:true,
+      migratedFrom:migration.oldEmail,
+      updatedAt:now,
+      updatedBy:actor
+    },{merge:true});
+    batch.set(doc(db,'fitflow_users',migration.oldEmail),{
+      active:false,
+      migratedTo:migration.newEmail,
+      updatedAt:now,
+      updatedBy:actor
+    },{merge:true});
+    batch.set(doc(db,'config','vendors'),{value:vendors});
+    const auditId=`email_${Date.now()}_${migration.vendorIndex}`;
+    batch.set(doc(db,'fitflow_admin_audit',auditId),{
+      action:'vendor_access_email_migrated',
+      vendorName:currentVendor.name||'',
+      oldEmail:migration.oldEmail,
+      newEmail:migration.newEmail,
+      orders:migration.orders.length,
+      deleted:migration.deleted.length,
+      pdfs:migration.pdfs.length,
+      chunks:migration.chunks.length,
+      createdAt:now,
+      createdBy:actor
+    });
+
+    await batch.commit();
+    LS._setLocal('vendors',vendors);
+    pendingVendorEmailMigration=null;
+    renderVendorList();
+    buildLoginSelect();
+    closeModal();
+    toast(`Correo migrado: ${migration.orders.length} pedidos y ${migration.pdfs.length} PDF actualizados`,'ok','long');
+  } catch(e) {
+    toast(e?.message || 'La migración no pudo completarse. No se aplicaron cambios.','err','long');
+    console.log('Vendor email migration error:',e?.message||e);
+  } finally {
+    hideLoading();
+  }
+}
+
 function editVendor(i) {
   if (!requireSupraAccess()) return;
   const vendors=(LS.get('vendors')||[]).map(normalizeVendor);
@@ -7719,7 +7919,7 @@ function editVendor(i) {
     <div><label class="modal-lbl">Nombre</label><input class="modal-inp" id="edit-v-name" value="${escEmailHtml(v.name)}" autocomplete="off" style="margin-bottom:0"></div>
     <div><label class="modal-lbl">Rol</label><select class="modal-inp" id="edit-v-role" style="margin-bottom:0">${roleOptions}</select></div>
     <div><label class="modal-lbl">Codigo usuario ERP</label><input class="modal-inp" id="edit-v-code" type="tel" inputmode="numeric" maxlength="4" value="${escEmailHtml(v.codigo||'')}" autocomplete="off" placeholder="Ej: 0004" style="margin-bottom:0"></div>
-    <div><label class="modal-lbl">Correo de acceso</label><input class="modal-inp" id="edit-v-email" type="email" value="${escEmailHtml(v.email||'')}" autocomplete="email" placeholder="usuario@empresa.cl" style="margin-bottom:0"></div>
+    <div><label class="modal-lbl">Correo de acceso</label><div style="display:flex;gap:8px;align-items:stretch;"><input class="modal-inp" id="edit-v-email" type="email" value="${escEmailHtml(v.email||'')}" autocomplete="email" placeholder="usuario@empresa.cl" ${isNew?'':'readonly'} style="margin-bottom:0;flex:1;">${isNew?'':`<button class="btn-cancel" type="button" style="width:auto;padding:0 12px;white-space:nowrap;" onclick="openVendorEmailMigration(${Number(i)})">Cambiar correo</button>`}</div></div>
     <div><label class="modal-lbl">Telefono vendedor</label><input class="modal-inp" id="edit-v-phone" type="tel" inputmode="tel" value="${escEmailHtml(formatChilePhone(v.phone||''))}" autocomplete="tel" placeholder="+56912345678" style="margin-bottom:0"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
       <div><label class="modal-lbl">Desc. max productos</label><div class="percent-input-wrap"><input class="modal-inp" id="edit-v-max-prod" type="number" inputmode="numeric" min="0" max="100" value="${normalizeDiscountLimit(v.maxProductDiscount)}" onfocus="selectQtyInput(this)" onclick="selectQtyInput(this)" style="margin-bottom:0"><span class="percent-input-symbol">%</span></div></div>
@@ -7739,6 +7939,10 @@ async function saveEditVendor(i) {
   const previousVendors=(LS.get('vendors')||[]).map(normalizeVendor);
   const vendors=previousVendors.map(v => ({...v}));
   const editingIdx = i === 'new' ? -1 : parseInt(i);
+  if (editingIdx >= 0 && email !== normalizeEmail(previousVendors[editingIdx]?.email||'')) {
+    toast('Usa el botón Cambiar correo para conservar el historial','err','long');
+    return;
+  }
   if (vendors.some((v,idx)=>idx !== editingIdx && normalizeEmail(v.email) === email)) {
     toast('Ese correo ya está asignado a otro usuario','err');
     return;
@@ -7958,7 +8162,7 @@ updatePriceModeButtons();
 <!-- Firebase SDK -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
-  import { getFirestore, doc, getDoc, setDoc, deleteDoc, getDocs, collection, query, where, runTransaction } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
+  import { getFirestore, doc, getDoc, setDoc, deleteDoc, getDocs, collection, query, where, writeBatch, runTransaction } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
   import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, sendPasswordResetEmail, verifyPasswordResetCode, confirmPasswordReset, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js";
 
   const app = initializeApp({
@@ -7979,7 +8183,7 @@ updatePriceModeButtons();
   window._fbDB  = db;
   window._fbAuth = auth;
   window._fbGoogleProvider = googleProvider;
-  window._fbSDK = { getDoc, setDoc, deleteDoc, doc, getDocs, collection, query, where, runTransaction, signInWithPopup, signInWithEmailAndPassword, sendPasswordResetEmail, verifyPasswordResetCode, confirmPasswordReset, signOut };
+  window._fbSDK = { getDoc, setDoc, deleteDoc, doc, getDocs, collection, query, where, writeBatch, runTransaction, signInWithPopup, signInWithEmailAndPassword, sendPasswordResetEmail, verifyPasswordResetCode, confirmPasswordReset, signOut };
 
   // Antes del login solo se trae configuracion liviana: usuarios, email y logo.
   if (typeof preloadLoginConfig === 'function') preloadLoginConfig();
