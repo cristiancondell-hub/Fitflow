@@ -4945,9 +4945,15 @@ async function sendDocumentDirectSingle(orderData, recipients) {
     };
   const startedAt = new Date().toISOString();
   try {
+    const authUser = window._fbAuth?.currentUser;
+    if (!authUser?.getIdToken) throw new Error('Sesión Firebase no disponible para enviar');
+    const idToken = await authUser.getIdToken();
     const res = await fetch(SEND_EMAIL_ENDPOINT, {
       method:'POST',
-      headers:{'Content-Type':'text/plain;charset=UTF-8'},
+      headers:{
+        'Content-Type':'text/plain;charset=UTF-8',
+        'Authorization':`Bearer ${idToken}`
+      },
       body:JSON.stringify(payload)
   });
     const raw = await res.text();
