@@ -825,6 +825,8 @@ const LOGO_TYPES = {
   document:{label:'Logo documentos PDF', local:'logo_document', doc:'logo_document', meta:'logo_document_meta'}
 };
 const SEND_EMAIL_ENDPOINT = 'https://fitflow-email.cristiancondell.workers.dev';
+const FIREBASE_WRITE_TIMEOUT_MS = 12000;
+const EMAIL_SEND_TIMEOUT_MS = 30000;
 const DEFAULT_COMPANY_CONFIG = {
   nombreComercial:'',
   nombre:'COMERCIAL CONDELL LIMITADA',
@@ -1472,20 +1474,25 @@ function logOrderFirebaseWrite(order, reason='sin_motivo') {
   if (fitflowWriteDiag.rows.length > 300) fitflowWriteDiag.rows.shift();
   console.info(`[FitFlow Firebase Write] #${row.n} orders_dev/${key} | motivo: ${reason}`, row);
 }
-function syncOrderToFirebase(order, reason='syncOrderToFirebase') {
-  if (!order) return;
+async function syncOrderToFirebase(order, reason='syncOrderToFirebase') {
+  if (!order) return false;
   if (!window._fbDB) {
     savePendingOrderSync(order, reason);
-    return;
+    return false;
   }
   try {
     const { setDoc, doc } = window._fbSDK;
     logOrderFirebaseWrite(order, reason);
-    setDoc(doc(window._fbDB,'orders',orderKey(order)), order, {merge:true})
-      .then(()=>clearPendingOrderSyncKey(orderKey(order)))
-      .catch(()=>savePendingOrderSync(order, reason));
+    const writePromise = setDoc(doc(window._fbDB,'orders',orderKey(order)), order, {merge:true});
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Tiempo de espera agotado al guardar')), FIREBASE_WRITE_TIMEOUT_MS);
+    });
+    await Promise.race([writePromise, timeoutPromise]);
+    clearPendingOrderSyncKey(orderKey(order));
+    return true;
   } catch(e) {
     savePendingOrderSync(order, reason);
+    return false;
   }
 }
 
@@ -4986,14 +4993,22 @@ async function sendDocumentDirectSingle(orderData, recipients) {
     const authUser = window._fbAuth?.currentUser;
     if (!authUser?.getIdToken) throw new Error('Sesión Firebase no disponible para enviar');
     const idToken = await authUser.getIdToken();
-    const res = await fetch(SEND_EMAIL_ENDPOINT, {
-      method:'POST',
-      headers:{
-        'Content-Type':'text/plain;charset=UTF-8',
-        'Authorization':`Bearer ${idToken}`
-      },
-      body:JSON.stringify(payload)
-  });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), EMAIL_SEND_TIMEOUT_MS);
+    let res;
+    try {
+      res = await fetch(SEND_EMAIL_ENDPOINT, {
+        method:'POST',
+        headers:{
+          'Content-Type':'text/plain;charset=UTF-8',
+          'Authorization':`Bearer ${idToken}`
+        },
+        body:JSON.stringify(payload),
+        signal:controller.signal
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
     const raw = await res.text();
     let data = {};
     try { data = raw ? JSON.parse(raw) : {}; } catch(_) { data = {raw}; }
@@ -5020,6 +5035,9 @@ async function sendDocumentDirectSingle(orderData, recipients) {
     }
     return data;
   } catch(err) {
+    if (err?.name === 'AbortError') {
+      err = new Error('El servicio de correo no respondió dentro de 30 segundos');
+    }
     const prev = LS.get('lastEmailDebug') || {};
     LS.set('lastEmailDebug', {
       at:startedAt,
@@ -5443,7 +5461,13 @@ async function sendPedido(docType='cotizacion', sendMode='central', confirmedMul
     orders.unshift(orderData);
   }
   LS.set('orders',orders);
-  syncOrderToFirebase(orderData, 'enviar_documento_pre_envio');
+  showLoading('Guardando documento...');
+  const savedForEmail = await syncOrderToFirebase(orderData, 'enviar_documento_pre_envio');
+  if (!savedForEmail) {
+    hideLoading();
+    toast('El documento quedó guardado localmente, pero no se enviará hasta confirmar su respaldo en línea. Revisa la conexión e intenta nuevamente.','err','long');
+    return;
+  }
   showLoading('Enviando correo...');
   const recipients = {adminEmails, adminEmail:adminEmails[0], vendorEmail, clientEmail:sendMode === 'both' ? clientEmail : '', clientCcEmail:sendMode === 'both' ? clientCcEmail : '', clientPhone:sendMode === 'both' ? clientPhone : ''};
   try {
