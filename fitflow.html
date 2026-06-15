@@ -5468,7 +5468,7 @@ async function sendPedido(docType='cotizacion', sendMode='central', confirmedMul
     toast('El documento quedó guardado localmente, pero no se enviará hasta confirmar su respaldo en línea. Revisa la conexión e intenta nuevamente.','err','long');
     return;
   }
-  showLoading('Enviando correo...');
+  setLoadingText('Enviando correo...');
   const recipients = {adminEmails, adminEmail:adminEmails[0], vendorEmail, clientEmail:sendMode === 'both' ? clientEmail : '', clientCcEmail:sendMode === 'both' ? clientCcEmail : '', clientPhone:sendMode === 'both' ? clientPhone : ''};
   try {
     const result = await sendDocumentDirect(orderData, recipients);
