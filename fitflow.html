@@ -4143,7 +4143,7 @@ function buildDocumentBody(order, opts={}) {
     `Fecha: ${order.fecha}`,
     `Vendedor: ${vendorContact || order.vendedor || ''}`,
     `Documento: ${cfg.label}`,
-    `Condicion de pago: ${order.paymentCondition||''}`,
+    `Condición de pago: ${order.paymentCondition||''}`,
     '',
     'INFORMACIÓN DEL CLIENTE',
     sep,
@@ -4470,8 +4470,8 @@ async function buildOrderPdfRecord(order) {
   const documentLogo = await getPdfLogoData();
   const logoSize = await pdfImageSize(documentLogo);
   const cols = [
-    {k:'cod', label:'Codigo', x:margin, w:20, align:'left'},
-    {k:'desc', label:'Descripcion', x:margin+20, w:84.9, align:'left'},
+    {k:'cod', label:'Código', x:margin, w:20, align:'left'},
+    {k:'desc', label:'Descripción', x:margin+20, w:84.9, align:'left'},
     {k:'qty', label:'Cant.', x:margin+104.9, w:12, align:'center'},
     {k:'unit', label:'Unidad', x:margin+116.9, w:15, align:'center'},
     {k:'unitPrice', label:'P. Unitario', sub:'Neto / c IVA', x:margin+131.9, w:30, align:'right', headerAlign:'center'},
@@ -4529,7 +4529,7 @@ async function buildOrderPdfRecord(order) {
     const leftX = margin + 4, rightX = margin + 105, clientY = yy + 6.2;
     pdfLabelValueLine(pdf, 'Cliente:', order.cliente?.nombre || '', leftX, clientY, 96);
     pdfLabelValueLine(pdf, 'RUT:', order.cliente?.rut || '', leftX, clientY+6, 96);
-    pdfLabelValueLine(pdf, 'Direccion:', order.cliente?.direccion || '', leftX, clientY+12, 96);
+    pdfLabelValueLine(pdf, 'Dirección:', order.cliente?.direccion || '', leftX, clientY+12, 96);
     pdfLabelValueLine(pdf, 'Correo:', clientContact.email, leftX, clientY+18, 96);
     pdfLabelValueLine(pdf, 'Ciudad / Comuna:', [order.cliente?.ciudad, order.cliente?.comuna].filter(Boolean).join(' / '), rightX, clientY, 82);
     pdfLabelValueLine(pdf, 'Fecha:', pdfDateOnly(order.fecha), rightX, clientY+6, 82);
@@ -4606,7 +4606,7 @@ async function buildOrderPdfRecord(order) {
     cols.slice(1).forEach(c => pdf.line(c.x, rowY, c.x, rowY+rowH));
     const midY = rowY + rowH/2;
     pdf.setTextColor(...dark); pdf.setFont('helvetica','normal'); pdf.setFontSize(6.8);
-    pdf.text(pdfSafeText(item.cod || 'SIN CODIGO'), cols[0].x+2, midY+1);
+    pdf.text(pdfSafeText(item.cod || 'SIN CÓDIGO'), cols[0].x+2, midY+1);
     pdf.setFontSize(7.2); pdf.text(descLines, cols[1].x+2, descLines.length > 1 ? midY-1.5 : midY+1);
     pdf.text(String(item.qty||0), cols[2].x+cols[2].w/2, midY+1, {align:'center'});
     pdf.text(unitLabel(item.unidad) || '', cols[3].x+cols[3].w/2, midY+1, {align:'center'});
@@ -4651,9 +4651,9 @@ async function buildOrderPdfRecord(order) {
     ];
 
     pdf.setFillColor(255,255,255); pdf.setDrawColor(80,80,80); pdfRoundedRect(pdf, obsX, blockY, obsW, obsH, totalRadius, 'FD');
-    pdf.setFont('helvetica','bold'); pdf.setFontSize(7.5); pdf.setTextColor(...black); pdf.text('Condicion de pago:', obsX+3, blockY+5);
+    pdf.setFont('helvetica','bold'); pdf.setFontSize(7.5); pdf.setTextColor(...black); pdf.text('Condición de pago:', obsX+3, blockY+5);
     pdf.setFont('helvetica','normal'); pdf.setFontSize(7); pdf.setTextColor(...dark);
-    const payLines = pdfFitLines(pdf, order.paymentCondition || 'Sin condicion seleccionada', obsW-6, 1);
+    const payLines = pdfFitLines(pdf, order.paymentCondition || 'Sin condición seleccionada', obsW-6, 1);
     pdf.text(payLines, obsX+3, blockY+8.8);
     const obsTitleY = blockY + 13.2;
     pdf.setFont('helvetica','bold'); pdf.setFontSize(7.5); pdf.setTextColor(...black); pdf.text('Observaciones:', obsX+3, obsTitleY);
@@ -4693,7 +4693,7 @@ async function buildOrderPdfRecord(order) {
       drawFinalBlocks(finalBlockY);
       if (order.documentOffline) {
         pdf.setFont('helvetica','bold'); pdf.setFontSize(7); pdf.setTextColor(...black);
-        pdf.text('* Correlativo provisorio generado sin conexion.', margin, Math.min(pageBottom, finalBlockY+totalH+7));
+        pdf.text('* Correlativo provisorio generado sin conexión.', margin, Math.min(pageBottom, finalBlockY+totalH+7));
       }
     }
     drawTestClientWatermark();
